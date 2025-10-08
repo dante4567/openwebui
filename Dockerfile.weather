@@ -1,0 +1,37 @@
+# Custom Dockerfile for OpenWebUI Weather Tool
+FROM python:3.10.12-slim
+
+# Create non-privileged user
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "10001" \
+    appuser
+
+# Install git
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+
+# Clone the repository
+WORKDIR /tmp
+RUN git clone https://github.com/open-webui/openapi-servers.git
+
+# Install dependencies
+WORKDIR /tmp/openapi-servers/servers/weather
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files to /app
+WORKDIR /app
+RUN cp -r /tmp/openapi-servers/servers/weather/* . && \
+    rm -rf /tmp/openapi-servers
+
+# Switch to non-privileged user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,43 @@
+# Memory Tool for OpenWebUI - Knowledge Graph Server
+FROM python:3.10.12-slim
+
+# Create non-privileged user
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "10001" \
+    appuser
+
+# Install git and curl
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+
+# Clone the repository
+WORKDIR /tmp
+RUN git clone https://github.com/open-webui/openapi-servers.git
+
+# Install dependencies
+WORKDIR /tmp/openapi-servers/servers/memory
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files to /app
+WORKDIR /app
+RUN cp -r /tmp/openapi-servers/servers/memory/* . && \
+    rm -rf /tmp/openapi-servers
+
+# Create data directory for memory storage
+RUN mkdir -p /data && chown appuser:appuser /data
+
+# Switch to non-privileged user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Store memory file in persistent volume
+ENV MEMORY_FILE_PATH=/data/memory.json
+
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

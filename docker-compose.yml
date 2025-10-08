@@ -1,0 +1,352 @@
+services:
+  # ===================================================================
+  # OLLAMA - Local LLM Server (Fallback + Embeddings) - DISABLED
+  # ===================================================================
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: openwebui-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   restart: unless-stopped
+  #   networks:
+  #     - openwebui-net
+  #   # Auto-pull small models on first startup
+  #   healthcheck:
+  #     test: ["CMD", "ollama", "list"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   # Note: Models will be pulled via init container or manually
+  #   # Run after stack is up: docker exec openwebui-ollama ollama pull llama3.2:1b
+
+  # ===================================================================
+  # CHROMADB - Vector Database for RAG
+  # ===================================================================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: openwebui-chromadb
+    ports:
+      - "3000:8000"  # Can change to 8001 if port 8000 is taken
+    volumes:
+      - chromadb-data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    # healthcheck disabled - ChromaDB API v1 heartbeat endpoint deprecated
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+
+  # ===================================================================
+  # TOOL SERVERS - OpenAPI Tool Servers for Extended LLM Capabilities
+  # ===================================================================
+
+  # Weather Tool - Real-time weather forecasts
+  weather-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.weather
+    container_name: openwebui-weather
+    ports:
+      - "8005:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # No API key required - uses free Open-Meteo API
+    # OpenWebUI URL: http://weather-tool:8000
+
+  # Filesystem Tool - Read/write files, search, directory operations
+  filesystem-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.filesystem
+    container_name: openwebui-filesystem
+    ports:
+      - "8006:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    volumes:
+      # Mount host directory for file operations
+      - /Users/danielteckentrup/input-rag:/workspace
+    environment:
+      - WORKSPACE_DIR=/workspace
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # OpenWebUI URL: http://filesystem-tool:8000
+    # ⚠️  SECURITY: Restricts file access to /workspace directory only
+
+  # Git Tool - Repository operations (clone, commit, push, pull, status)
+  git-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.git
+    container_name: openwebui-git
+    ports:
+      - "8003:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    volumes:
+      # Share filesystem workspace for git operations
+      - /Users/danielteckentrup/input-rag:/workspace
+    environment:
+      - WORKSPACE_DIR=/workspace
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # OpenWebUI URL: http://git-tool:8000
+
+  # Memory Tool - Knowledge Graph for persistent LLM memory
+  memory-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.memory
+    container_name: openwebui-memory
+    ports:
+      - "8004:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    volumes:
+      # Persistent storage for knowledge graph
+      - memory-data:/data
+    environment:
+      - MEMORY_FILE_PATH=/data/memory.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # OpenWebUI URL: http://memory-tool:8000
+    # Stores entities, relations, and observations in a knowledge graph
+
+  # ===================================================================
+  # OPENWEBUI - Main Application
+  # ===================================================================
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: openwebui
+    ports:
+      - "8080:8080"
+    volumes:
+      - openwebui-data:/app/backend/data
+    env_file:
+      - .env  # API keys and secrets
+    environment:
+      # ========================================
+      # CORE APPLICATION
+      # ========================================
+      - WEBUI_NAME=Open WebUI
+      - WEBUI_URL=http://localhost:8080
+      - PORT=8080
+      - DEFAULT_LOCALE=en
+      - ENV=production
+
+      # ========================================
+      # SECURITY & AUTH
+      # ========================================
+      # WEBUI_SECRET_KEY loaded from .env
+      - WEBUI_AUTH=true
+      - ENABLE_SIGNUP=false  # Admin-only mode
+      - ENABLE_LOGIN_FORM=true
+      - CORS_ALLOW_ORIGIN=*
+
+      # ========================================
+      # LLM PROVIDERS (Cloud Primary, Local Fallback)
+      # ========================================
+
+      # Cloud APIs (Primary - Fast, High Quality)
+      - ENABLE_OPENAI_API=true
+      - OPENAI_API_BASE_URL=https://api.openai.com/v1
+      # OPENAI_API_KEY in .env
+
+      # Groq (Very fast, free tier)
+      - ENABLE_GROQ_API=true
+      - GROQ_API_BASE_URL=https://api.groq.com/openai/v1
+      # GROQ_API_KEY in .env
+
+      # Anthropic Claude (Excellent for writing/analysis)
+      - ENABLE_ANTHROPIC_API=true
+      - ANTHROPIC_API_BASE_URL=https://api.anthropic.com/v1
+      # ANTHROPIC_API_KEY in .env
+
+      # Google Gemini
+      - ENABLE_GOOGLE_API=true
+      - GOOGLE_API_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+      # GOOGLE_API_KEY in .env
+
+      # Local Ollama (Fallback + Embeddings) - DISABLED
+      - ENABLE_OLLAMA_API=false
+      # - OLLAMA_BASE_URL=http://ollama:11434  # Internal network
+
+      # ========================================
+      # VECTOR DATABASE (RAG)
+      # ========================================
+      - VECTOR_DB=chroma
+
+      # Option 1: Use internal ChromaDB (default)
+      - CHROMA_HTTP_HOST=chromadb
+      - CHROMA_HTTP_PORT=8000
+
+      # Option 2: Use external ChromaDB (uncomment to override)
+      # - CHROMA_HTTP_HOST=external-server.local
+      # - CHROMA_HTTP_PORT=8000
+
+      # ========================================
+      # RAG CONFIGURATION
+      # ========================================
+      # Use Ollama for embeddings (free, local, works offline) - DISABLED
+      # - RAG_EMBEDDING_ENGINE=ollama
+      # - RAG_EMBEDDING_MODEL=nomic-embed-text
+
+      # Using OpenAI embeddings (Ollama disabled)
+      - RAG_EMBEDDING_ENGINE=openai
+      - RAG_EMBEDDING_MODEL=text-embedding-3-small
+
+      - RAG_TOP_K=5
+      - CHUNK_SIZE=1500
+      - CHUNK_OVERLAP=100
+      - ENABLE_RAG_WEB_SEARCH=false
+      - ENABLE_RAG_LOCAL_WEB_FETCH=false
+
+      # PDF Processing
+      - PDF_EXTRACT_IMAGES=false
+      - CONTENT_EXTRACTION_ENGINE=default
+      - FILE_SIZE_LIMIT=104857600  # 100MB
+
+      # ========================================
+      # AUDIO (Whisper STT + TTS)
+      # ========================================
+      - ENABLE_AUDIO_TRANSCRIPTION=true
+
+      # Option 1: Use OpenAI Whisper API (cloud - high quality)
+      - AUDIO_STT_ENGINE=openai
+      - AUDIO_STT_MODEL=whisper-1
+      # OPENAI_API_KEY in .env
+
+      # Option 2: Use local Whisper (if you set up separate container)
+      # - AUDIO_STT_ENGINE=whisper
+      # - WHISPER_API_BASE_URL=http://whisper:9000
+
+      # Text-to-Speech
+      - AUDIO_TTS_ENGINE=openai
+      - AUDIO_TTS_MODEL=tts-1
+      - AUDIO_TTS_VOICE=alloy  # Options: alloy, echo, fable, onyx, nova, shimmer
+
+      # ========================================
+      # CODE EXECUTION & FUNCTIONS
+      # ========================================
+      - ENABLE_CODE_EXECUTION=true
+      - CODE_EXECUTION_ENGINE=pyodide  # Safe sandboxed Python in browser
+      # For Docker-based code execution (more powerful but needs Docker socket):
+      # - CODE_EXECUTION_ENGINE=docker
+      # - CODE_EXECUTION_DOCKER_IMAGE=python:3.11-slim
+
+      # Enable function calling (tools/agentic capabilities)
+      - ENABLE_FUNCTION_CALLING=true
+
+      # ========================================
+      # MEMORY & CONTEXT
+      # ========================================
+      - ENABLE_MEMORY=true
+      - MEMORY_BACKEND=chroma  # Store memories in ChromaDB
+
+      # ========================================
+      # WEB SEARCH (Optional)
+      # ========================================
+      - ENABLE_WEB_SEARCH=false
+      # To enable, uncomment and add API keys to .env:
+      # - ENABLE_WEB_SEARCH=true
+      # - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
+      # Or use API-based search:
+      # BRAVE_SEARCH_API_KEY, SERPER_API_KEY, etc. in .env
+
+      # ========================================
+      # IMAGE GENERATION (Optional)
+      # ========================================
+      - ENABLE_IMAGE_GENERATION=false
+      # To enable with OpenAI DALL-E:
+      # - ENABLE_IMAGE_GENERATION=true
+      # - IMAGE_GENERATION_ENGINE=openai
+      # OPENAI_API_KEY in .env
+
+      # ========================================
+      # INTEGRATIONS & FEATURES
+      # ========================================
+      - ENABLE_COMMUNITY_SHARING=false
+      - ENABLE_MESSAGE_RATING=true
+      - ENABLE_TAGS=true
+      - ENABLE_AUTOCOMPLETE_GENERATION=true
+      - ENABLE_ADMIN_EXPORT=true
+      - ENABLE_ADMIN_CHAT_ACCESS=true
+      - OFFLINE_MODE=false
+
+      # ========================================
+      # PERFORMANCE
+      # ========================================
+      - TASK_MODEL=gpt-4o-mini  # Cloud model for background tasks
+      - TASK_MODEL_EXTERNAL=
+
+      # ========================================
+      # LOGGING
+      # ========================================
+      - LOG_LEVEL=INFO
+      - SHOW_ADMIN_DETAILS=true
+
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    depends_on:
+      # ollama:
+      #   condition: service_healthy
+      chromadb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ===================================================================
+# VOLUMES
+# ===================================================================
+volumes:
+  ollama-data:
+    driver: local
+  chromadb-data:
+    driver: local
+  openwebui-data:
+    driver: local
+  filesystem-workspace:
+    driver: local
+    # Shared workspace for filesystem and git tools
+  memory-data:
+    driver: local
+    # Persistent storage for knowledge graph memory
+
+# ===================================================================
+# NETWORKS
+# ===================================================================
+networks:
+  openwebui-net:
+    driver: bridge
