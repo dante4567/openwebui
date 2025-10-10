@@ -15,11 +15,17 @@ This is a complete OpenWebUI stack with ChromaDB and multiple OpenAPI tool serve
 OpenWebUI (8080) → Main chat interface
 ├── Cloud LLMs: OpenAI, Groq, Anthropic, Google
 ├── ChromaDB (3000→8000): Vector database for RAG + memory
-└── Tool Servers (OpenAPI):
-    ├── Weather (8005→8000): Open-Meteo API integration
-    ├── Filesystem (8006→8000): Sandboxed file operations in /workspace
-    ├── Git (8003→8000): Repository operations in /workspace
-    └── Memory (8004→8000): Knowledge graph storage
+├── Tool Servers (OpenAPI):
+│   ├── Weather (8005→8000): Open-Meteo API integration
+│   ├── Filesystem (8006→8000): Sandboxed file operations in /workspace
+│   ├── Git (8003→8000): Repository operations in /workspace
+│   └── Memory (8004→8000): Knowledge graph storage
+└── Extended Services:
+    ├── Pipelines (9099): OpenWebUI extension framework
+    ├── SearXNG (8081→8080): Metasearch engine for web search
+    ├── Tika (9998): Document parsing with OCR (100+ formats)
+    ├── LiteLLM (4000): Unified LLM gateway with caching
+    └── Redis (6379): Caching backend for LiteLLM
 ```
 
 **Note**: Port mappings show `host:container` format. Tool servers all run on port 8000 internally.
@@ -33,12 +39,23 @@ OpenWebUI (8080) → Main chat interface
 
 ### Docker Compose Services
 All services run on `openwebui-net` bridge network:
+
+**Core Services:**
 - `chromadb`: Container name `openwebui-chromadb` (port 3000→8000)
 - `openwebui`: Container name `openwebui` (port 8080)
+
+**Tool Servers:**
 - `weather-tool`: Container name `openwebui-weather` (port 8005→8000)
 - `filesystem-tool`: Container name `openwebui-filesystem` (port 8006→8000)
 - `git-tool`: Container name `openwebui-git` (port 8003→8000)
 - `memory-tool`: Container name `openwebui-memory` (port 8004→8000)
+
+**Extended Services:**
+- `pipelines`: Container name `openwebui-pipelines` (port 9099)
+- `searxng`: Container name `openwebui-searxng` (port 8081→8080)
+- `tika`: Container name `openwebui-tika` (port 9998)
+- `litellm`: Container name `openwebui-litellm` (port 4000)
+- `redis`: Container name `openwebui-redis` (port 6379)
 
 ## Development Commands
 
@@ -96,6 +113,38 @@ ls -la ~/input-rag
 cp mydocument.pdf ~/input-rag/
 ```
 
+### Extended Services Management
+```bash
+# Test Pipelines service
+curl http://localhost:9099/
+# Expected: {"status":true}
+
+# Test SearXNG search
+curl "http://localhost:8081/search?q=test&format=json"
+# Returns JSON search results from multiple search engines
+
+# Test Tika document parsing
+curl http://localhost:9998/tika
+# Expected: "This is Tika Server (Apache Tika X.X.X)"
+
+# Test with document parsing
+curl -X PUT --data-binary @mydocument.pdf http://localhost:9998/tika --header "Accept: text/plain"
+
+# Test LiteLLM health
+curl http://localhost:4000/health
+# Expected: {"status":"healthy"}
+
+# Test Redis
+docker exec openwebui-redis redis-cli ping
+# Expected: PONG
+
+# View LiteLLM logs (caching info, cost tracking)
+docker-compose logs -f litellm
+
+# View SearXNG search configuration
+docker-compose logs -f searxng
+```
+
 ### Data Management
 ```bash
 # List Docker volumes first to get exact names
@@ -121,6 +170,18 @@ docker run --rm \
   -v openwebui_memory-data:/data \
   -v $(pwd):/backup \
   alpine tar czf /backup/memory-backup-$(date +%Y%m%d).tar.gz -C /data .
+
+# Backup pipelines data
+docker run --rm \
+  -v openwebui_pipelines-data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/pipelines-backup-$(date +%Y%m%d).tar.gz -C /data .
+
+# Backup Redis cache (optional - can be regenerated)
+docker run --rm \
+  -v openwebui_redis-data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/redis-backup-$(date +%Y%m%d).tar.gz -C /data .
 ```
 
 ## Configuration
@@ -204,6 +265,13 @@ docker exec openwebui curl http://weather-tool:8000/docs
 docker exec openwebui curl http://filesystem-tool:8000/docs
 docker exec openwebui curl http://git-tool:8000/docs
 docker exec openwebui curl http://memory-tool:8000/docs
+
+# Check extended services connectivity
+docker exec openwebui curl http://pipelines:9099/
+docker exec openwebui curl http://searxng:8080/
+docker exec openwebui curl http://tika:9998/tika
+docker exec openwebui curl http://litellm:4000/health
+docker exec openwebui-redis redis-cli ping
 ```
 
 ### Common Issues
@@ -231,15 +299,119 @@ docker exec openwebui curl http://memory-tool:8000/docs
 - `chromadb-data`: Vector database + memory storage
 - `openwebui-data`: User data, conversations, settings (includes SQLite database)
 - `memory-data`: Knowledge graph persistence
+- `pipelines-data`: Custom pipelines and extensions
+- `redis-data`: Redis persistence for LiteLLM caching
 - **Host mount**: `~/input-rag` → `/workspace` (filesystem/git tools - change in docker-compose.yml lines 86, 111)
 
 ### Port Mapping
+
+**Core Services:**
 - 8080: OpenWebUI web interface
 - 3000: ChromaDB (mapped from internal 8000)
+
+**Tool Servers:**
 - 8005: Weather tool (mapped from internal 8000)
 - 8006: Filesystem tool (mapped from internal 8000)
 - 8003: Git tool (mapped from internal 8000)
 - 8004: Memory tool (mapped from internal 8000)
+
+**Extended Services:**
+- 9099: Pipelines extension framework
+- 8081: SearXNG metasearch (mapped from internal 8080)
+- 9998: Apache Tika document parsing
+- 4000: LiteLLM unified gateway
+- 6379: Redis caching
+
+## Extended Services
+
+### Pipelines (Port 9099)
+OpenWebUI's native extension framework for modifying LLM requests/responses before/after processing.
+
+**Capabilities:**
+- Custom pre-processing of user messages
+- Post-processing of LLM responses
+- Adding custom logic/integrations
+- More powerful than tool servers (can modify request flow)
+
+**Enable in OpenWebUI:**
+```yaml
+# In docker-compose.yml openwebui environment:
+- ENABLE_PIPELINES=true
+- PIPELINES_URLS=http://pipelines:9099
+```
+
+**Documentation:** https://docs.openwebui.com/pipelines
+
+### SearXNG (Port 8081)
+Self-hosted metasearch engine aggregating results from Google, Bing, DuckDuckGo, and 70+ other search engines.
+
+**Why Better Than DuckDuckGo API:**
+- No rate limits
+- No API key needed
+- Aggregates multiple sources
+- Privacy-focused (no tracking)
+
+**Already Configured:**
+- `RAG_WEB_SEARCH_ENGINE=searxng`
+- `SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>`
+
+**Configuration:** `searxng/settings.yml`
+
+### Apache Tika (Port 9998)
+Mature document parsing engine supporting 100+ file formats with OCR capabilities.
+
+**Supported Formats:**
+- PDFs (including scanned with OCR)
+- Microsoft Office (Word, Excel, PowerPoint)
+- Images, HTML, XML, CSV, and more
+
+**Already Configured:**
+- `CONTENT_EXTRACTION_ENGINE=tika`
+- `TIKA_SERVER_URL=http://tika:9998`
+
+**Use Case:** Upload documents to OpenWebUI → Tika extracts text → Embedded in ChromaDB for RAG
+
+### LiteLLM Proxy (Port 4000)
+Unified gateway for all LLM providers with advanced features.
+
+**Features:**
+- **Caching**: Reduces API costs by caching responses in Redis
+- **Cost Tracking**: Real-time spend monitoring across all providers
+- **Fallback Logic**: Auto-retry with cheaper models if primary fails
+- **Rate Limiting**: Prevent runaway costs
+- **Unified API**: OpenAI-compatible endpoint for all providers
+
+**Configuration:** `litellm_config.yaml`
+
+**Models Available:**
+- OpenAI: gpt-4o, gpt-4o-mini
+- Anthropic: claude-3-5-sonnet, claude-3-5-haiku
+- Groq: llama-3.1-70b, llama-3.1-8b
+- Google: gemini-1.5-pro, gemini-1.5-flash
+
+**Fallback Chain:**
+```yaml
+gpt-4o → gpt-4o-mini (if fails)
+claude-3-5-sonnet → gpt-4o (if fails)
+llama-3.1-70b → llama-3.1-8b (if fails)
+```
+
+**Enable in OpenWebUI:**
+Point OpenWebUI to `http://litellm:4000/v1` as an OpenAI-compatible endpoint.
+
+**UI Access:** http://localhost:4000 (admin/admin - change in litellm_config.yaml)
+
+### Redis (Port 6379)
+Caching backend for LiteLLM to reduce API costs.
+
+**Configuration:**
+- Persistence enabled (appendonly mode)
+- Stores in `redis-data` volume
+- Used automatically by LiteLLM
+
+**Cost Savings Example:**
+- Same question asked twice → Second request served from cache (free)
+- Typical savings: 20-40% on API costs for repeated queries
 
 ## Re-enabling Ollama (Optional)
 
