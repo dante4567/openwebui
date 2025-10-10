@@ -1,89 +1,126 @@
-# OpenWebUI Complete Stack
+# OpenWebUI Agentic Stack
 
-**Self-contained OpenWebUI with Ollama, ChromaDB, and cloud LLM support**
+**Complete OpenWebUI setup with ChromaDB, tool servers, and cloud LLM support for "agentic" AI workflows**
 
 ## What's Included
 
-This stack provides:
-- ✅ **OpenWebUI** - AI chat interface
-- ✅ **Ollama** - Local LLM server (fallback + embeddings)
-- ✅ **ChromaDB** - Vector database for RAG
-- ✅ **Tool Servers** - OpenAPI tool servers for extended capabilities:
+This stack provides a complete "agentic" AI setup:
+- ✅ **OpenWebUI** - AI chat interface with function calling
+- ✅ **ChromaDB** - Vector database for RAG (document Q&A)
+- ✅ **Cloud LLMs** - OpenAI, Groq, Anthropic, Google (primary)
+- ✅ **Tool Servers** - OpenAPI tool servers for agentic workflows:
   - **Weather** - Real-time forecasts (Open-Meteo API)
-  - **Filesystem** - File operations (sandboxed to `/workspace` directory)
-  - **Git** - Repository management (clone, commit, push in `/workspace`)
-  - **Memory** - Knowledge graph for persistent LLM memory (entities, relations, observations)
+  - **Filesystem** - Read/write files in `~/input-rag` directory
+  - **Git** - Repository operations (clone, commit, push, pull)
+  - **Memory** - Knowledge graph for persistent context (entities, relations, observations)
+- ✅ **Pre-configured Features**:
+  - Text-to-Speech (OpenAI TTS, voice: alloy)
+  - Speech-to-Text (OpenAI Whisper)
+  - Image Generation (DALL-E 3)
+  - Code Execution (Pyodide sandbox)
+  - Web Search (DuckDuckGo)
+  - Personas & Custom Functions
 
-## Pre-Configured Features
+## Exporting Your Configuration (For Backup/Transfer)
 
-### ✅ Already Configured (docker-compose + .env)
-- **Cloud LLMs**: OpenAI, Groq, Anthropic, Google (primary)
-- **Local LLM**: Ollama (fallback)
-- **RAG**: ChromaDB + embeddings
-- **Audio**: Whisper STT, OpenAI TTS
-- **Memory**: Enabled (stores in ChromaDB)
-- **Functions**: Enabled (configure tools in GUI)
-- **Code Execution**: Enabled (Pyodide sandbox)
+Once you've set up OpenWebUI the way you like it, export your configuration:
 
-### 🔧 Needs GUI Configuration (one-time setup)
-- Admin account creation
-- Model visibility settings
-- Personas (optional)
-- Custom functions/tools (filesystem, git, todoist, etc.)
-- System prompts (optional)
+### 1. Export via GUI
+```bash
+# In OpenWebUI:
+# 1. Go to: Admin Panel → Settings → General
+# 2. Scroll down to "Import/Export Settings"
+# 3. Click: "Export Settings" button
+# 4. Save JSON file
+```
+
+### 2. Store Securely
+```bash
+# Store in password manager (Bitwarden, 1Password, etc.)
+# DO NOT commit to git - contains API keys!
+```
+
+### 3. Use on New Machine
+```bash
+# Copy config to new machine
+# Run import commands from "Method 2" above
+```
+
+**Pro tip:** Keep both in your password manager:
+- **`.env`** file (as secure note) - for environment variables
+- **`config.json`** (as secure note) - for OpenWebUI settings
+
+This way you can spin up a fully-configured OpenWebUI on any machine in 2 minutes!
 
 ---
 
-## Quick Start
+## Quick Start (5 Minutes)
 
-### 1. Setup Environment
+### Method 1: Fresh Setup (Recommended)
 
 ```bash
-# Copy environment template
+# 1. Clone this repo
+git clone <your-repo-url>
+cd openwebui
+
+# 2. Setup environment
 cp .env.example .env
+# Edit .env and add your API keys (at least WEBUI_SECRET_KEY + one LLM key)
 
-# Edit .env file
-nano .env
+# 3. Create data directory for RAG
+mkdir -p ~/input-rag
 
-# REQUIRED: Set these values
-# - WEBUI_SECRET_KEY (generate with: openssl rand -hex 32)
-# - At least one LLM API key (GROQ_API_KEY recommended for free tier)
-```
-
-### 2. Start the Stack
-
-```bash
-# Start all services
+# 4. Start the stack
 docker-compose up -d
 
-# Check status
-docker-compose ps
+# 5. Wait ~30 seconds, then access
+open http://localhost:8080
 
-# View logs
-docker-compose logs -f openwebui
+# 6. Create admin account (first user = admin)
 ```
 
-### 3. Pull Models (First Time)
+**That's it!** You now have OpenWebUI with TTS, STT, image generation, RAG, and 4 tool servers running.
+
+### Method 2: Import Pre-Configured Settings (Fast Setup)
+
+If you have a saved config from a previous setup:
 
 ```bash
-# Essential: Embedding model for RAG
-docker exec openwebui-ollama ollama pull nomic-embed-text
+# 1-4. Same as Method 1 above
 
-# Recommended: Small chat model (fallback)
-docker exec openwebui-ollama ollama pull llama3.2:1b
+# 5. Copy your config JSON from secure storage (Bitwarden, 1Password, etc.)
+# Replace YOUR_*_API_KEY placeholders with real keys
+cp config.example.json config.json
+# Edit config.json with real API keys
 
-# Optional: Larger models
-docker exec openwebui-ollama ollama pull llama3.2:3b
-docker exec openwebui-ollama ollama pull deepseek-r1:1.5b
+# 6. Import configuration
+docker cp config.json openwebui:/tmp/config.json
+docker exec openwebui python3 -c "$(cat import_config_v2.py)"
+
+# 7. Restart to apply
+docker-compose restart openwebui
+
+# 8. Access and login
+open http://localhost:8080
 ```
 
-### 4. Access OpenWebUI
+**What gets imported:**
+- ✅ All API keys (OpenAI, Groq, Anthropic, Google)
+- ✅ Tool server connections (weather, filesystem, git, memory)
+- ✅ RAG settings (chunk size, embedding model, top-k)
+- ✅ TTS/STT configuration
+- ✅ Image generation settings
+- ✅ Web search configuration
+- ✅ UI preferences (signup disabled, message rating enabled)
+
+### 3. Access OpenWebUI
 
 Open http://localhost:8080
 
 **First-time setup:**
 1. Create admin account (first user = admin)
-2. Configure settings (see GUI Configuration below)
+2. Place documents in `~/input-rag/` for RAG
+3. Start chatting with agentic features!
 
 ---
 
@@ -365,19 +402,25 @@ openwebui:
     - CHROMA_HTTP_PORT=8000
 ```
 
-### Use OpenAI Embeddings (Instead of Ollama)
+### Connect to Home Network ChromaDB
+
+If you have a ChromaDB server running on your home network:
 
 Edit `docker-compose.yml`:
 ```yaml
 openwebui:
   environment:
-    - RAG_EMBEDDING_ENGINE=openai
-    - RAG_EMBEDDING_MODEL=text-embedding-3-small
-    # OPENAI_API_KEY in .env
+    # Replace with your ChromaDB server IP/hostname
+    - CHROMA_HTTP_HOST=192.168.1.100  # or chromadb.local
+    - CHROMA_HTTP_PORT=8000
+
+# Optional: Comment out local chromadb service to save resources
+# services:
+#   chromadb:
+#     ...
 ```
 
-**Pros**: Better quality, minimal cost (~$0.02/month)
-**Cons**: Requires internet, not fully offline
+**Use case:** Share RAG documents across multiple OpenWebUI instances
 
 ### Enable Web Search
 
@@ -506,15 +549,41 @@ docker-compose up -d
 ## What's Next
 
 After setup, explore:
-1. **Upload documents** → Test RAG (document Q&A)
-2. **Connect weather tool** → Enable weather forecasts in chat
-3. **Create personas** → Customize AI behavior
-4. **Build functions** → Integrate with your tools (git, todoist, etc.)
-5. **Try different models** → Compare Groq vs GPT-4 vs Claude
-6. **Add more tool servers** → Filesystem, Git, Web scraping, etc.
-7. **Export golden copy** → Deploy to other machines
+1. **Copy documents to `~/input-rag/`** → Test RAG (document Q&A)
+2. **Try tool servers** → Ask "What's the weather in Berlin?" or "Read files in workspace"
+3. **Create personas** → Customize AI behavior for specific tasks
+4. **Try TTS/STT** → Voice chat with AI (works in browser)
+5. **Generate images** → Ask "Create an image of a sunset over mountains"
+6. **Try different models** → Compare Groq vs GPT-4o-mini vs Claude
+7. **Export config** → Keep backup in password manager for quick deployment
+
+## Real-Life Usage Tips
+
+### Security Best Practices
+- ✅ **Config JSON**: Store in Bitwarden/1Password (contains API keys)
+- ✅ **`.env` file**: Also store in password manager (backup)
+- ✅ **Workspace**: Only mount `~/input-rag` - never `~/Documents` or `~/Desktop`
+- ✅ **Read-only mode**: For sensitive docs, use `:ro` mount in docker-compose.yml
+- ✅ **Rotate keys**: If config is ever exposed, rotate all API keys immediately
+
+### Deployment Workflow
+```bash
+# New machine setup (2 minutes):
+1. Clone repo
+2. Copy .env from password manager
+3. Copy config.json from password manager (optional)
+4. docker-compose up -d
+5. Import config (if using)
+6. Done!
+```
+
+### Cost Optimization
+- **Free tier**: Use Groq (70B llama, free but rate-limited)
+- **Budget**: GPT-4o-mini ($0.15/1M tokens) + Groq embeddings
+- **Premium**: GPT-4o + Claude 3.5 Sonnet (best quality)
+- **Offline**: Enable Ollama service (see CLAUDE.md)
 
 ---
 
-**Last Updated**: 2025-10-06
-**Components**: OpenWebUI v0.6.32+, Ollama latest, ChromaDB latest, Weather Tool (Open-Meteo)
+**Last Updated**: 2025-10-10
+**Components**: OpenWebUI latest, ChromaDB latest, 4 Tool Servers (Weather, Filesystem, Git, Memory)

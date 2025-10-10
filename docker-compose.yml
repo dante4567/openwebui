@@ -81,8 +81,9 @@ services:
     networks:
       - openwebui-net
     volumes:
-      # Mount host directory for file operations
-      - /Users/danielteckentrup/input-rag:/workspace
+      # Mount host directory for RAG data access
+      # ⚠️  Change this path to your data directory
+      - ~/input-rag:/workspace
     environment:
       - WORKSPACE_DIR=/workspace
     healthcheck:
@@ -91,7 +92,7 @@ services:
       timeout: 10s
       retries: 3
     # OpenWebUI URL: http://filesystem-tool:8000
-    # ⚠️  SECURITY: Restricts file access to /workspace directory only
+    # ⚠️  SECURITY: LLM has write access to ~/input-rag - use dedicated directory!
 
   # Git Tool - Repository operations (clone, commit, push, pull, status)
   git-tool:
@@ -105,8 +106,9 @@ services:
     networks:
       - openwebui-net
     volumes:
-      # Share filesystem workspace for git operations
-      - /Users/danielteckentrup/input-rag:/workspace
+      # Share workspace with filesystem tool for git operations
+      # ⚠️  Change this path to match filesystem-tool
+      - ~/input-rag:/workspace
     environment:
       - WORKSPACE_DIR=/workspace
     healthcheck:
@@ -115,6 +117,7 @@ services:
       timeout: 10s
       retries: 3
     # OpenWebUI URL: http://git-tool:8000
+    # ⚠️  SECURITY: LLM has write access to ~/input-rag - use dedicated directory!
 
   # Memory Tool - Knowledge Graph for persistent LLM memory
   memory-tool:
@@ -331,8 +334,6 @@ services:
 # VOLUMES
 # ===================================================================
 volumes:
-  ollama-data:
-    driver: local
   chromadb-data:
     driver: local
   openwebui-data:

@@ -29,7 +29,7 @@ OpenWebUI (8080) → Main chat interface
 - **ChromaDB**: Vector store for RAG and persistent memory
 - **Cloud LLM APIs**: OpenAI (GPT-4o, GPT-4o-mini), Groq (llama-3.1), Anthropic (Claude), Google (Gemini)
 - **Tool Servers**: Built from `github.com/open-webui/openapi-servers` with custom Dockerfiles
-- **Shared Workspace**: `filesystem-workspace` volume shared between filesystem and git tools
+- **Shared Workspace**: Host directory `~/input-rag` mounted to `/workspace` (enables RAG on local files)
 
 ### Docker Compose Services
 All services run on `openwebui-net` bridge network:
@@ -87,9 +87,13 @@ curl "http://localhost:8006/docs"  # Filesystem OpenAPI docs
 curl "http://localhost:8003/docs"  # Git OpenAPI docs
 curl "http://localhost:8004/docs"  # Memory OpenAPI docs
 
-# Access workspace
+# Access workspace (mounted from ~/input-rag)
 docker exec -it openwebui-filesystem ls -la /workspace
-docker cp openwebui-filesystem:/workspace/myfile.txt ./myfile.txt
+# Or access directly on host:
+ls -la ~/input-rag
+
+# Copy files to workspace for RAG processing
+cp mydocument.pdf ~/input-rag/
 ```
 
 ### Data Management
@@ -109,11 +113,8 @@ docker run --rm \
   -v $(pwd):/backup \
   alpine tar czf /backup/chromadb-backup-$(date +%Y%m%d).tar.gz -C /data .
 
-# Backup workspace
-docker run --rm \
-  -v openwebui_filesystem-workspace:/data \
-  -v $(pwd):/backup \
-  alpine tar czf /backup/workspace-backup-$(date +%Y%m%d).tar.gz -C /data .
+# Backup workspace (directly from host mount)
+tar czf workspace-backup-$(date +%Y%m%d).tar.gz -C ~/input-rag .
 
 # Backup memory knowledge graph
 docker run --rm \
@@ -129,6 +130,11 @@ docker run --rm \
 - Required: `WEBUI_SECRET_KEY` (generate with `openssl rand -hex 32`)
 - Cloud LLM keys: `OPENAI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`
 - Optional: `TODOIST_API_KEY`, `BRAVE_SEARCH_API_KEY`, etc.
+
+**Note on GitHub Secrets**: This is a local Docker deployment, not a GitHub Actions workflow. GitHub Secrets are designed for CI/CD pipelines. For local development:
+- Keep `.env` file locally (never commit it)
+- Use `.env.example` as a template (commit this)
+- For production deployments, use Docker Swarm secrets, Kubernetes secrets, or a secrets manager (Vault, AWS Secrets Manager, etc.)
 
 ### Docker Compose Environment
 Key environment variables in `docker-compose.yml`:
@@ -161,16 +167,30 @@ All tool server Dockerfiles follow this pattern:
 
 ### Filesystem Tool Specifics
 - Modified `config.py` to use `/workspace` instead of `~/tmp` (line 26 in Dockerfile.filesystem)
-- Sandboxed to `/workspace` directory only for security
-- Shares `filesystem-workspace` volume with git-tool
+- Sandboxed to `/workspace` directory only - cannot access files outside this path
+- Mounts host directory `~/input-rag` to `/workspace` (shared with git-tool)
 - All file operations validated against `/workspace` allowlist
+
+**Security Trade-offs:**
+- ✅ **Benefit**: LLM can read/process your local documents for RAG
+- ⚠️ **Risk**: LLM has write access - could modify/delete files in `~/input-rag`
+- 💡 **Best Practice**: Use dedicated directory, keep backups, avoid mounting sensitive locations like `~/Documents`
 
 ### Security Considerations
 - All tool servers run as non-root user (`appuser`)
-- Filesystem/Git tools restricted to `/workspace` volume
-- No host filesystem access
+- Filesystem/Git tools restricted to `/workspace` directory only
 - Weather tool has no sensitive data (public API)
 - Memory tool stores data in isolated volume
+
+**Host Mount Security:**
+- LLM has **read/write access** to `~/input-rag` via filesystem and git tools
+- Change mount path in `docker-compose.yml` to customize (lines 86, 111)
+- **Recommendations:**
+  - Use dedicated directory for RAG data only (e.g., `~/input-rag`)
+  - Never mount `~/Documents`, `~/Desktop`, or other sensitive locations
+  - Keep regular backups of mounted directory
+  - Consider read-only mount for sensitive data: `~/data:/workspace:ro`
+  - Monitor LLM interactions when working with important files
 
 ## Troubleshooting
 
@@ -210,9 +230,8 @@ docker exec openwebui curl http://memory-tool:8000/docs
 ### Volumes
 - `chromadb-data`: Vector database + memory storage
 - `openwebui-data`: User data, conversations, settings (includes SQLite database)
-- `filesystem-workspace`: Shared workspace for filesystem/git tools
 - `memory-data`: Knowledge graph persistence
-- `ollama-data`: Defined but unused (Ollama disabled)
+- **Host mount**: `~/input-rag` → `/workspace` (filesystem/git tools - change in docker-compose.yml lines 86, 111)
 
 ### Port Mapping
 - 8080: OpenWebUI web interface
@@ -318,11 +337,46 @@ To run fully offline with local models:
 - External access via mapped ports (8003-8006)
 - **Internal URLs** for OpenWebUI configuration: `http://weather-tool:8000`, etc.
 - **External URLs** for testing: `http://localhost:8005`, etc.
-- Filesystem and Git tools share `/workspace` volume for seamless integration
+- Filesystem and Git tools share `/workspace` directory (mounted from host `~/input-rag`)
 - Memory tool uses JSON storage in dedicated volume
 
 ### Database Storage
 - **OpenWebUI data**: SQLite database at `/app/backend/data/webui.db` (in openwebui-data volume)
 - **ChromaDB**: Vector storage at `/chroma/chroma` (in chromadb-data volume)
 - **Memory graph**: JSON file at `/data/memory.json` (in memory-data volume)
-- **Workspace**: Files at `/workspace` (in filesystem-workspace volume)
+- **Workspace**: Files at `/workspace` (mounted from host `~/input-rag`)
+
+## Using Local Data with RAG
+
+### Setup Your Data Directory
+```bash
+# Create dedicated directory for RAG data
+mkdir -p ~/input-rag
+
+# Copy documents you want to process
+cp ~/Documents/myreport.pdf ~/input-rag/
+cp -r ~/Projects/documentation ~/input-rag/
+
+# Restart services to mount the directory
+docker-compose restart filesystem-tool git-tool
+```
+
+### Customizing Mount Location
+Edit `docker-compose.yml` lines 86 and 111 to change the mount path:
+```yaml
+volumes:
+  - /path/to/your/data:/workspace  # Change this path
+```
+
+### Read-Only Access (More Secure)
+For sensitive data you only want to read (not modify):
+```yaml
+volumes:
+  - ~/sensitive-docs:/workspace:ro  # :ro = read-only
+```
+
+### Using RAG with Local Files
+1. Place documents in `~/input-rag/`
+2. In OpenWebUI chat, use filesystem tool to read files
+3. Or upload documents via UI for automatic embedding in ChromaDB
+4. LLM can now search and reference your local documents
