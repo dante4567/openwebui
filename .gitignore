@@ -6,6 +6,10 @@
 users.csv
 config-*.json
 
+# SearXNG auto-generated files
+searxng/limiter.toml
+searxng/__pycache__/
+
 # Python cache
 __pycache__/
 *.pyc

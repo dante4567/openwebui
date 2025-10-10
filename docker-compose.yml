@@ -144,6 +144,135 @@ services:
     # Stores entities, relations, and observations in a knowledge graph
 
   # ===================================================================
+  # EXTENDED SERVICES - Pipelines, Search, Document Parsing, LLM Proxy
+  # ===================================================================
+
+  # Pipelines - OpenWebUI's native extension framework
+  pipelines:
+    image: ghcr.io/open-webui/pipelines:main
+    container_name: openwebui-pipelines
+    ports:
+      - "9099:9099"
+    volumes:
+      - pipelines-data:/app/pipelines
+    environment:
+      - PIPELINES_URLS=
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9099/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # More powerful than tool servers - can modify LLM requests/responses
+    # Add custom processing before/after LLM calls
+    # OpenWebUI URL: http://pipelines:9099
+
+  # SearXNG - Self-hosted metasearch engine (aggregates Google, Bing, DDG, etc.)
+  searxng:
+    image: searxng/searxng:latest
+    container_name: openwebui-searxng
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8081/
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Better than DuckDuckGo API - no rate limits, aggregates multiple search engines
+    # Requires settings.yml configuration (see searxng/ directory)
+    # OpenWebUI setting: RAG_WEB_SEARCH_ENGINE=searxng, SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
+
+  # Apache Tika - Document parsing with OCR support (mature, 100+ formats)
+  # Uncomment to enable advanced PDF/document parsing
+  tika:
+    image: apache/tika:latest-full
+    container_name: openwebui-tika
+    ports:
+      - "9998:9998"
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9998/tika"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Handles scanned PDFs (OCR), tables, 100+ document formats
+    # OpenWebUI setting: TIKA_SERVER_URL=http://tika:9998
+
+  # Docling - Modern document parsing (better for tables/formulas)
+  # Alternative to Tika - choose one based on your needs
+  # Uncomment to enable (comment out Tika if using this)
+  # docling:
+  #   image: ds4sd/docling:latest
+  #   container_name: openwebui-docling
+  #   ports:
+  #     - "5001:5001"
+  #   restart: unless-stopped
+  #   networks:
+  #     - openwebui-net
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   # Better for scientific papers, tables, formulas (GPU-accelerated OCR)
+  #   # OpenWebUI setting: DOCLING_SERVER_URL=http://docling:5001
+
+  # LiteLLM Proxy - Unified gateway for all LLM providers
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: openwebui-litellm
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml
+    environment:
+      - LITELLM_MASTER_KEY=sk-1234
+      - DATABASE_URL=
+    command: --config /app/config.yaml --port 4000
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Features: caching, cost tracking, rate limiting, fallback logic
+    # Point OpenWebUI to: http://litellm:4000/v1 (OpenAI-compatible)
+
+  # Redis - Caching for LiteLLM (saves API costs)
+  redis:
+    image: redis:7-alpine
+    container_name: openwebui-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Used by LiteLLM for response caching
+
+  # ===================================================================
   # OPENWEBUI - Main Application
   # ===================================================================
   openwebui:
@@ -229,12 +358,20 @@ services:
       - RAG_TOP_K=5
       - CHUNK_SIZE=1500
       - CHUNK_OVERLAP=100
-      - ENABLE_RAG_WEB_SEARCH=false
+
+      # Web Search - Using SearXNG (self-hosted, no API key needed)
+      - ENABLE_RAG_WEB_SEARCH=true
+      - RAG_WEB_SEARCH_ENGINE=searxng
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
       - ENABLE_RAG_LOCAL_WEB_FETCH=false
 
-      # PDF Processing
+      # PDF/Document Processing - Using Apache Tika (advanced parsing + OCR)
       - PDF_EXTRACT_IMAGES=false
-      - CONTENT_EXTRACTION_ENGINE=default
+      - CONTENT_EXTRACTION_ENGINE=tika
+      - TIKA_SERVER_URL=http://tika:9998
+      # Alternative: Use Docling for better tables/formulas (uncomment if using)
+      # - CONTENT_EXTRACTION_ENGINE=docling
+      # - DOCLING_SERVER_URL=http://docling:5001
       - FILE_SIZE_LIMIT=104857600  # 100MB
 
       # ========================================
@@ -275,14 +412,11 @@ services:
       - MEMORY_BACKEND=chroma  # Store memories in ChromaDB
 
       # ========================================
-      # WEB SEARCH (Optional)
+      # PIPELINES (Optional - for custom LLM processing)
       # ========================================
-      - ENABLE_WEB_SEARCH=false
-      # To enable, uncomment and add API keys to .env:
-      # - ENABLE_WEB_SEARCH=true
-      # - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
-      # Or use API-based search:
-      # BRAVE_SEARCH_API_KEY, SERPER_API_KEY, etc. in .env
+      # Uncomment to enable OpenWebUI Pipelines
+      # - ENABLE_PIPELINES=true
+      # - PIPELINES_URLS=http://pipelines:9099
 
       # ========================================
       # IMAGE GENERATION (Optional)
@@ -344,6 +478,12 @@ volumes:
   memory-data:
     driver: local
     # Persistent storage for knowledge graph memory
+  pipelines-data:
+    driver: local
+    # Custom pipelines and extensions
+  redis-data:
+    driver: local
+    # Redis persistence for LiteLLM caching
 
 # ===================================================================
 # NETWORKS

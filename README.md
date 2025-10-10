@@ -57,12 +57,18 @@ This stack provides a complete "agentic" AI setup:
   - **Filesystem** - Read/write files in `~/input-rag` directory
   - **Git** - Repository operations (clone, commit, push, pull)
   - **Memory** - Knowledge graph for persistent context (entities, relations, observations)
+- ✅ **Extended Services** (New!):
+  - **Pipelines** - OpenWebUI's native extension framework (modify LLM requests/responses)
+  - **SearXNG** - Self-hosted metasearch (Google+Bing+DDG, no API keys, no rate limits)
+  - **Apache Tika** - Advanced document parsing with OCR (100+ formats, scanned PDFs)
+  - **LiteLLM** - Unified LLM gateway (caching, cost tracking, fallbacks)
+  - **Redis** - Response caching for LiteLLM (save API costs)
 - ✅ **Pre-configured Features**:
   - Text-to-Speech (OpenAI TTS, voice: alloy)
   - Speech-to-Text (OpenAI Whisper)
   - Image Generation (DALL-E 3)
   - Code Execution (Pyodide sandbox)
-  - Web Search (DuckDuckGo)
+  - Web Search (SearXNG self-hosted)
   - Personas & Custom Functions
 
 ## Exporting Your Configuration (For Backup/Transfer)
