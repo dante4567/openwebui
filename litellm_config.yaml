@@ -1,10 +1,10 @@
 # LiteLLM Configuration for OpenWebUI
 # Unified gateway for all LLM providers with caching, cost tracking, and fallbacks
-# Updated: 2025-10-12 - All models verified current
+# Updated: 2025-10-12 - All models verified current as of October 2025
 
 model_list:
   # ========================================
-  # OpenAI Models (Updated Jan 2025)
+  # OpenAI Models (Updated Oct 2025)
   # ========================================
   - model_name: gpt-4.1-mini
     litellm_params:
@@ -34,7 +34,7 @@ model_list:
       supports_vision: true
 
   # ========================================
-  # Anthropic Claude (Updated Jan 2025)
+  # Anthropic Claude (Updated Oct 2025)
   # ========================================
   - model_name: claude-sonnet-4-5-20250929
     litellm_params:
@@ -64,7 +64,7 @@ model_list:
       supports_vision: false
 
   # ========================================
-  # Groq (Updated Jan 2025 - Fast, free tier)
+  # Groq (Updated Oct 2025 - Fast, free tier)
   # ========================================
   - model_name: llama-3.3-70b-versatile
     litellm_params:
@@ -85,7 +85,7 @@ model_list:
       supports_vision: false
 
   # ========================================
-  # Google Gemini (Updated Jan 2025)
+  # Google Gemini (Updated Oct 2025)
   # ========================================
   - model_name: gemini-2.5-pro
     litellm_params:

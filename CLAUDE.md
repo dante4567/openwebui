@@ -11,7 +11,7 @@ OpenWebUI configured for **GTD (Getting Things Done) workflows**: multi-cloud LL
 - Currently running: OpenWebUI + ChromaDB + LiteLLM + Redis + SearXNG + Tika + 4 GTD tools (filesystem, git, todoist, caldav)
 - Total: 10 containers (not the "minimal 5" originally documented)
 - **LiteLLM is the gateway**: All API calls go through LiteLLM proxy at `http://litellm:4000`
-- **Models updated Jan 2025**: All providers verified, outdated models removed (gemini-1.5-* → gemini-2.5-*)
+- **Models updated Oct 2025**: All providers verified current as of October 2025, outdated models removed (gemini-1.5-* → gemini-2.5-*)
 
 ## Architecture
 
@@ -133,7 +133,7 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 - `DEFAULT_MODELS=gpt-4o-mini` in docker-compose.yml forces cheap model
 - **All API calls go through LiteLLM** which has caching enabled (saves $$)
 
-**Current model pricing (Jan 2025, per 1M tokens):**
+**Current model pricing (Oct 2025, per 1M tokens):**
 
 | Model | Input | Output | Use Case |
 |-------|-------|--------|----------|
