@@ -214,6 +214,13 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
    cd ~/ai-workspace && git status
    ```
 
+7. **Models bypass LiteLLM (no caching, no fallbacks)**:
+   - **Symptom**: Models work but Redis cache has low hit rate, or models are in OpenWebUI GUI with direct provider URLs
+   - **Cause**: OpenWebUI database has manual API connections that bypass LiteLLM proxy
+   - **Fix**: Run `python3 fix_litellm_routing.py` to update database, then restart OpenWebUI
+   - **Verify**: All models should show `urlIdx: 0` in Settings → Admin → Models export, not multiple urlIdx values
+   - **Test caching**: Make same API call twice - second call should be 10-20x faster (cached)
+
 **Debug connectivity:**
 ```bash
 # Test from OpenWebUI container
@@ -283,14 +290,15 @@ docker exec openwebui curl http://caldav-tool:8000/
 - Security scanning
 - Dependency updates
 
-**LiteLLM vs direct APIs**: See `CI-CD-RECOMMENDATIONS.md`
-- Current setup uses direct API connections (simple, low latency)
-- LiteLLM proxy available if you need: fallback chains, cost tracking, rate limiting, caching
-- Easy to migrate later if requirements change
+**LiteLLM routing (CRITICAL)**: All traffic MUST go through LiteLLM proxy
+- Current setup: ALL API calls route through `http://litellm:4000` (verified Oct 2025)
+- Benefits: Redis caching (50-80% cost savings), fallback chains, cost tracking
+- If models appear in GUI but don't work: Check Settings → Connections, delete any manual API connections
+- Script to fix routing: `python3 fix_litellm_routing.py` (updates OpenWebUI database)
 
 **Model currency & updates**: See `MODEL-UPDATE-STRATEGY.md`
 - Automated API checks verify models are current (run with test script)
-- All models verified current as of January 2025
+- All models verified current as of October 2025
 - Monthly review recommended (first Sunday)
 - Provider update patterns and migration guides included
 
