@@ -223,10 +223,11 @@ services:
     networks:
       - openwebui-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     # Better than DuckDuckGo API - no rate limits, aggregates multiple search engines
     # Requires settings.yml configuration (see searxng/ directory)
     # OpenWebUI setting: RAG_WEB_SEARCH_ENGINE=searxng, SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
@@ -241,10 +242,11 @@ services:
     networks:
       - openwebui-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9998/tika"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9998/tika || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     # Handles scanned PDFs (OCR), tables, 100+ document formats
     # If you want local parsing instead of cloud, uncomment this and change CONTENT_EXTRACTION_ENGINE=tika
 
@@ -287,10 +289,11 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; req = urllib.request.Request(\"http://localhost:4000/health\", headers={\"Authorization\": \"Bearer sk-1234\"}); urllib.request.urlopen(req).read()' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     # Features: caching, cost tracking, rate limiting, fallback logic
     # Point OpenWebUI to: http://litellm:4000/v1 (OpenAI-compatible)
 

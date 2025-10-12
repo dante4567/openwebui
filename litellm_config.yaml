@@ -87,6 +87,10 @@ model_list:
   # ========================================
   # Google Gemini (Updated Oct 2025)
   # ========================================
+  # NOTE: Gemini 2.5 models use reasoning tokens (think before responding)
+  # Requires higher max_tokens: ~50-200+ tokens vs 5-10 for other models
+  # Example: "Reply with OK" uses ~157 reasoning + 1 text = 158 total tokens
+
   - model_name: gemini-2.5-pro
     litellm_params:
       model: gemini/gemini-2.5-pro
@@ -95,6 +99,7 @@ model_list:
       mode: chat
       supports_function_calling: true
       supports_vision: true
+      # Reasoning model - needs 100-300 tokens for good responses
 
   - model_name: gemini-2.5-flash
     litellm_params:
@@ -104,6 +109,7 @@ model_list:
       mode: chat
       supports_function_calling: true
       supports_vision: true
+      # Reasoning model - needs 50-200 tokens (faster than 2.5-pro)
 
   - model_name: gemini-2.0-flash
     litellm_params:
@@ -113,6 +119,7 @@ model_list:
       mode: chat
       supports_function_calling: true
       supports_vision: true
+      # Standard model - works with normal token limits (5-20 tokens)
 
 # Redis caching configuration (saves API costs)
 litellm_settings:

@@ -59,6 +59,12 @@ docker-compose down                     # Stop all services
 docker-compose logs -f openwebui        # View logs
 docker-compose ps                       # Check service status
 
+# Configuration backup/restore
+# OpenWebUI settings can be exported/imported via the web UI:
+# Settings → Admin → Database → Export/Import (JSON format)
+# Includes: models, tools, prompts, documents, users, chats
+# Useful for: backups, migration, version control
+
 # Testing
 ./test-gtd-stack.sh                     # Run full integration test suite
                                         # Tests: containers, tools, APIs, config, models
@@ -180,7 +186,13 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 
 **Common issues:**
 
-1. **Tool not working in chat**: Small models lack tool support. Use GPT-4.1-mini or GPT-4o-mini (best balance), Claude Sonnet 4.5, or Gemini 2.5 Flash.
+1. **Tool not working in chat**: Small models lack tool support. Use GPT-4.1-mini or GPT-4o-mini (best balance), Claude Sonnet 4.5, or Gemini 2.0 Flash.
+
+   **Note on Gemini 2.5 models**: These are reasoning models that "think" before responding:
+   - gemini-2.5-pro: Needs 100-300 max_tokens (uses ~157 reasoning + text tokens)
+   - gemini-2.5-flash: Needs 50-200 max_tokens (uses ~21 reasoning + text tokens)
+   - gemini-2.0-flash: Standard model, works with normal 5-20 tokens
+   - If you get null/empty responses from 2.5 models, increase max_tokens parameter
 
 2. **Tool server URL error in GUI**: Must use internal Docker network names:
    - ✅ Correct: `http://todoist-tool:8000`
