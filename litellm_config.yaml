@@ -64,7 +64,7 @@ model_list:
       supports_vision: false
 
   # ========================================
-  # Groq (Updated Oct 2025 - Fast, free tier)
+  # Groq (Updated Oct 2025 - Fast & cheap)
   # ========================================
   - model_name: llama-3.3-70b-versatile
     litellm_params:

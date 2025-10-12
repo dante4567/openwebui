@@ -20,7 +20,7 @@ OpenWebUI (8080) → Multi-cloud LLM GUI
 ├── LiteLLM Proxy (4000): Unified gateway with caching, fallbacks, cost tracking
 │   ├── OpenAI: gpt-4.1-mini, gpt-4o-mini, gpt-4o
 │   ├── Anthropic: claude-sonnet-4-5, claude-3-5-sonnet, claude-3-5-haiku
-│   ├── Groq: llama-3.3-70b, llama-3.1-8b (free tier)
+│   ├── Groq: llama-3.3-70b, llama-3.1-8b (fast & cheap)
 │   └── Google: gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash
 ├── Redis (6379): Response caching for LiteLLM
 ├── ChromaDB (3000): Vector database for RAG
@@ -149,17 +149,18 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 | **claude-sonnet-4-5** | $3.00 | $15.00 | **NEW** - Most capable Claude |
 | claude-3-5-sonnet | $3.00 | $15.00 | Previous flagship |
 | claude-3-5-haiku | $1.00 | $5.00 | Fast, cheap Claude |
-| **llama-3.3-70b** | $0.59 | $0.79 | **FREE tier** on Groq (fast!) |
-| llama-3.1-8b | $0.05 | $0.08 | FREE tier on Groq (very fast) |
+| **llama-3.3-70b** | $0.59 | $0.79 | Groq (very fast, cheap) |
+| llama-3.1-8b | $0.05 | $0.08 | Groq (fastest, cheapest) |
 | **gemini-2.5-pro** | $1.25 | $5.00 | **NEW** - Replaced 1.5-pro |
 | **gemini-2.5-flash** | $0.075 | $0.30 | **NEW** - Replaced 1.5-flash |
 | gemini-2.0-flash | $0.075 | $0.30 | Alternative budget option |
 
 **Cost estimates:**
 - Typical agentic session (50k in, 10k out):
-  - gpt-4.1-mini: ~$0.014
-  - llama-3.3-70b (Groq): **FREE**
+  - llama-3.1-8b (Groq): ~$0.003 (CHEAPEST)
   - gemini-2.5-flash: ~$0.007
+  - gpt-4.1-mini: ~$0.014
+  - llama-3.3-70b (Groq): ~$0.037
 - $30/month = ~2000 gpt-4.1-mini sessions = 65/day
 
 **LiteLLM caching benefits:**
@@ -175,10 +176,11 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 - Google: https://console.cloud.google.com/
 
 **Recommendations:**
-- Use **Groq's llama-3.3-70b for FREE** (excellent performance)
-- Use gpt-4.1-mini or gpt-4o-mini for OpenAI (best value)
-- Use gemini-2.5-flash for Google (cheapest)
-- Avoid gpt-4o and claude-sonnet unless necessary
+- Use **Groq's llama-3.1-8b for cheapest** ($0.003/session - 10x cheaper than GPT-4o-mini)
+- Use gemini-2.5-flash for budget Google ($0.007/session)
+- Use gpt-4.1-mini or gpt-4o-mini for OpenAI (best balance $0.014/session)
+- Use llama-3.3-70b (Groq) for best Groq performance ($0.037/session)
+- Avoid gpt-4o and claude-sonnet unless necessary (expensive)
 - LiteLLM caching saves 50-80% on repeated queries
 - Monitor usage weekly via LiteLLM dashboard
 
