@@ -39,6 +39,13 @@ services:
     restart: unless-stopped
     networks:
       - openwebui-net
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
     # healthcheck disabled - ChromaDB API v1 heartbeat endpoint deprecated
 
   # ===================================================================
@@ -80,6 +87,13 @@ services:
       - ~/ai-workspace:/workspace
     environment:
       - WORKSPACE_DIR=/workspace
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
       interval: 30s
@@ -104,6 +118,13 @@ services:
       - ~/ai-workspace:/workspace
     environment:
       - WORKSPACE_DIR=/workspace
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
       interval: 30s
@@ -153,6 +174,13 @@ services:
       - openwebui-net
     env_file:
       - .env
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -174,6 +202,13 @@ services:
       - openwebui-net
     env_file:
       - .env
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -222,6 +257,13 @@ services:
     restart: unless-stopped
     networks:
       - openwebui-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/ || exit 1"]
       interval: 30s
@@ -241,6 +283,13 @@ services:
     restart: unless-stopped
     networks:
       - openwebui-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9998/tika || exit 1"]
       interval: 30s
@@ -288,6 +337,13 @@ services:
       - openwebui-net
     depends_on:
       - redis
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; req = urllib.request.Request(\"http://localhost:4000/health\", headers={\"Authorization\": \"Bearer sk-1234\"}); urllib.request.urlopen(req).read()' || exit 1"]
       interval: 30s
@@ -309,6 +365,13 @@ services:
     restart: unless-stopped
     networks:
       - openwebui-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -486,6 +549,13 @@ services:
     depends_on:
       chromadb:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

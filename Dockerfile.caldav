@@ -1,0 +1,30 @@
+# Custom Dockerfile for OpenWebUI CalDAV/CardDAV Tool
+FROM python:3.10.12-slim
+
+# Install system dependencies (curl for healthcheck)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+# Create non-privileged user
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "10001" \
+    appuser
+
+# Install dependencies
+WORKDIR /app
+COPY caldav-tool /app/
+
+RUN pip install --no-cache-dir fastapi uvicorn caldav vobject requests python-dotenv
+
+# Switch to non-privileged user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

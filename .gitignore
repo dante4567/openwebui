@@ -29,3 +29,28 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Allow safe config files (no API keys)
+!prompt-*.json
+!models-WHITELIST.json
+
+# Archive folder (old configs)
+archive/
+
+# Claude Code settings
+.claude/
+
+# Utility scripts (experimental, not production)
+apply_model_visibility*.py
+get_llm_models.py
+show_rag_stats.py
+import_config*.py
+fetch_models.sh
+
+# JSON exports (user-specific data)
+*-export-*.json
+openwebui-personas-*.json
+prompts-import.json
+
+# Allow specific JSON files
+!models-WHITELIST.json
