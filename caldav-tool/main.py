@@ -11,9 +11,20 @@ import vobject
 import requests
 from requests.auth import HTTPBasicAuth
 import os
+import sys
+import logging
 from typing import Optional, List
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
+import time
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("caldav-tool")
 
 app = FastAPI(
     title="CalDAV/CardDAV Tool",
@@ -31,7 +42,14 @@ CARDDAV_USERNAME = os.getenv("CARDDAV_USERNAME", CALDAV_USERNAME)
 CARDDAV_PASSWORD = os.getenv("CARDDAV_PASSWORD", CALDAV_PASSWORD)
 
 if not all([CALDAV_URL, CALDAV_USERNAME, CALDAV_PASSWORD]):
+    logger.error("Required environment variables not set")
     raise ValueError("CALDAV_URL, CALDAV_USERNAME, and CALDAV_PASSWORD are required")
+
+logger.info("CalDAV tool initialized", extra={
+    "caldav_url": CALDAV_URL,
+    "carddav_url": CARDDAV_URL,
+    "username": CALDAV_USERNAME
+})
 
 
 class Event(BaseModel):
@@ -78,6 +96,7 @@ def get_addressbook_url():
 @app.get("/")
 def root():
     """Health check endpoint"""
+    logger.debug("Health check requested")
     return {"status": "healthy", "service": "caldav-tool"}
 
 
@@ -88,12 +107,16 @@ def root():
 @app.get("/calendars")
 def list_calendars():
     """List all available calendars"""
+    start_time = time.time()
+    logger.info("Fetching calendars")
+
     try:
         client = get_caldav_client()
         principal = client.principal()
         calendars = principal.calendars()
 
-        return [
+        latency = time.time() - start_time
+        result = [
             {
                 "name": cal.name,
                 "url": str(cal.url),
@@ -101,8 +124,16 @@ def list_calendars():
             }
             for cal in calendars
         ]
+
+        logger.info("Calendars fetched successfully", extra={
+            "calendar_count": len(result),
+            "latency_ms": round(latency * 1000, 2)
+        })
+        return result
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to fetch calendars", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
 
 
 @app.get("/events")
@@ -121,18 +152,28 @@ def list_events(
         end_date: End date in ISO format (default: 30 days from now)
         days_ahead: Number of days to look ahead (if end_date not specified)
     """
+    start_time = time.time()
+    logger.info("Fetching events", extra={
+        "calendar_name": calendar_name,
+        "start_date": start_date,
+        "end_date": end_date,
+        "days_ahead": days_ahead
+    })
+
     try:
         client = get_caldav_client()
         principal = client.principal()
         calendars = principal.calendars()
 
         if not calendars:
+            logger.error("No calendars found")
             raise HTTPException(status_code=404, detail="No calendars found")
 
         # Select calendar
         if calendar_name:
             calendar = next((c for c in calendars if c.name == calendar_name), None)
             if not calendar:
+                logger.error("Calendar not found", extra={"calendar_name": calendar_name})
                 raise HTTPException(status_code=404, detail=f"Calendar '{calendar_name}' not found")
         else:
             calendar = calendars[0]
@@ -160,12 +201,19 @@ def list_events(
             except Exception:
                 continue
 
+        latency = time.time() - start_time
+        logger.info("Events fetched successfully", extra={
+            "event_count": len(results),
+            "calendar": calendar.name,
+            "latency_ms": round(latency * 1000, 2)
+        })
         return results
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to fetch events", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
 
 
 @app.post("/events")
@@ -177,18 +225,28 @@ def create_event(event: Event, calendar_name: Optional[str] = None):
         event: Event details
         calendar_name: Target calendar (default: first calendar)
     """
+    start_time = time.time()
+    logger.info("Creating event", extra={
+        "summary": event.summary,
+        "calendar_name": calendar_name,
+        "start": event.start,
+        "end": event.end
+    })
+
     try:
         client = get_caldav_client()
         principal = client.principal()
         calendars = principal.calendars()
 
         if not calendars:
+            logger.error("No calendars found")
             raise HTTPException(status_code=404, detail="No calendars found")
 
         # Select calendar
         if calendar_name:
             calendar = next((c for c in calendars if c.name == calendar_name), None)
             if not calendar:
+                logger.error("Calendar not found", extra={"calendar_name": calendar_name})
                 raise HTTPException(status_code=404, detail=f"Calendar '{calendar_name}' not found")
         else:
             calendar = calendars[0]
@@ -207,17 +265,25 @@ def create_event(event: Event, calendar_name: Optional[str] = None):
 
         # Generate UID
         import uuid
-        cal.vevent.add('uid').value = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
+        cal.vevent.add('uid').value = uid
 
         # Save to calendar
         calendar.save_event(cal.serialize())
 
-        return {"status": "success", "message": "Event created"}
+        latency = time.time() - start_time
+        logger.info("Event created successfully", extra={
+            "uid": uid,
+            "calendar": calendar.name,
+            "latency_ms": round(latency * 1000, 2)
+        })
+        return {"status": "success", "message": "Event created", "uid": uid}
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to create event", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
 
 
 # ============================================================================
@@ -227,6 +293,9 @@ def create_event(event: Event, calendar_name: Optional[str] = None):
 @app.get("/addressbooks")
 def list_addressbooks():
     """List all available addressbooks"""
+    start_time = time.time()
+    logger.info("Fetching addressbooks")
+
     try:
         url = get_addressbook_url()
         auth = get_carddav_auth()
@@ -245,10 +314,18 @@ def list_addressbooks():
             url,
             auth=auth,
             data=propfind_xml,
-            headers={'Content-Type': 'application/xml', 'Depth': '1'}
+            headers={'Content-Type': 'application/xml', 'Depth': '1'},
+            timeout=10
         )
 
+        latency = time.time() - start_time
+
         if response.status_code not in [200, 207]:
+            logger.error("Failed to fetch addressbooks", extra={
+                "status_code": response.status_code,
+                "response": response.text[:200],
+                "latency_ms": round(latency * 1000, 2)
+            })
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
         # Parse XML response
@@ -269,11 +346,20 @@ def list_addressbooks():
                     "id": href.text.split('/')[-2] if href is not None else ""
                 })
 
+        logger.info("Addressbooks fetched successfully", extra={
+            "addressbook_count": len(addressbooks),
+            "latency_ms": round(latency * 1000, 2)
+        })
         return addressbooks
+
     except HTTPException:
         raise
+    except requests.exceptions.RequestException as e:
+        logger.error("Network error fetching addressbooks", extra={"error": str(e)})
+        raise HTTPException(status_code=503, detail=f"CardDAV API unreachable: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to fetch addressbooks", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"CardDAV error: {str(e)}")
 
 
 @app.get("/contacts")
@@ -284,6 +370,9 @@ def list_contacts(addressbook_name: Optional[str] = "contacts"):
     Args:
         addressbook_name: Specific addressbook (default: "contacts")
     """
+    start_time = time.time()
+    logger.info("Fetching contacts", extra={"addressbook_name": addressbook_name})
+
     try:
         base_url = get_addressbook_url()
         auth = get_carddav_auth()
@@ -305,10 +394,19 @@ def list_contacts(addressbook_name: Optional[str] = "contacts"):
             addressbook_url,
             auth=auth,
             data=report_xml,
-            headers={'Content-Type': 'application/xml', 'Depth': '1'}
+            headers={'Content-Type': 'application/xml', 'Depth': '1'},
+            timeout=10
         )
 
+        latency = time.time() - start_time
+
         if response.status_code not in [200, 207]:
+            logger.error("Failed to fetch contacts", extra={
+                "addressbook_name": addressbook_name,
+                "status_code": response.status_code,
+                "response": response.text[:200],
+                "latency_ms": round(latency * 1000, 2)
+            })
             raise HTTPException(status_code=response.status_code, detail=f"CardDAV error: {response.text}")
 
         # Parse XML response
@@ -331,12 +429,21 @@ def list_contacts(addressbook_name: Optional[str] = "contacts"):
                 except Exception:
                     continue
 
+        logger.info("Contacts fetched successfully", extra={
+            "contact_count": len(results),
+            "addressbook": addressbook_name,
+            "latency_ms": round(latency * 1000, 2)
+        })
         return results
 
     except HTTPException:
         raise
+    except requests.exceptions.RequestException as e:
+        logger.error("Network error fetching contacts", extra={"error": str(e)})
+        raise HTTPException(status_code=503, detail=f"CardDAV API unreachable: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to fetch contacts", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"CardDAV error: {str(e)}")
 
 
 @app.post("/contacts")
@@ -348,6 +455,12 @@ def create_contact(contact: Contact, addressbook_name: Optional[str] = "contacts
         contact: Contact details
         addressbook_name: Target addressbook (default: "contacts")
     """
+    start_time = time.time()
+    logger.info("Creating contact", extra={
+        "full_name": contact.full_name,
+        "addressbook_name": addressbook_name
+    })
+
     try:
         import uuid
 
@@ -385,15 +498,32 @@ def create_contact(contact: Contact, addressbook_name: Optional[str] = "contacts
             contact_url,
             auth=auth,
             data=vcard.serialize(),
-            headers={'Content-Type': 'text/vcard'}
+            headers={'Content-Type': 'text/vcard'},
+            timeout=10
         )
 
+        latency = time.time() - start_time
+
         if response.status_code not in [200, 201, 204]:
+            logger.error("Failed to create contact", extra={
+                "status_code": response.status_code,
+                "response": response.text[:200],
+                "latency_ms": round(latency * 1000, 2)
+            })
             raise HTTPException(status_code=response.status_code, detail=f"CardDAV error: {response.text}")
 
+        logger.info("Contact created successfully", extra={
+            "uid": uid,
+            "addressbook": addressbook_name,
+            "latency_ms": round(latency * 1000, 2)
+        })
         return {"status": "success", "message": "Contact created", "uid": uid}
 
     except HTTPException:
         raise
+    except requests.exceptions.RequestException as e:
+        logger.error("Network error creating contact", extra={"error": str(e)})
+        raise HTTPException(status_code=503, detail=f"CardDAV API unreachable: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to create contact", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"CardDAV error: {str(e)}")
