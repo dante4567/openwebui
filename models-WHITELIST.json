@@ -1,0 +1,1831 @@
+[
+  {
+    "id": "gpt-4-turbo",
+    "object": "model",
+    "created": 1712361441,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4-turbo",
+    "openai": {
+      "id": "gpt-4-turbo",
+      "object": "model",
+      "created": 1712361441,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "gpt-4o",
+    "object": "model",
+    "created": 1715367049,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4o",
+    "openai": {
+      "id": "gpt-4o",
+      "object": "model",
+      "created": 1715367049,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": true
+  },
+  {
+    "id": "gpt-4o-mini",
+    "object": "model",
+    "created": 1721172741,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4o-mini",
+    "openai": {
+      "id": "gpt-4o-mini",
+      "object": "model",
+      "created": 1721172741,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": true
+  },
+  {
+    "id": "gpt-4o-audio-preview",
+    "object": "model",
+    "created": 1727460443,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4o-audio-preview",
+    "openai": {
+      "id": "gpt-4o-audio-preview",
+      "object": "model",
+      "created": 1727460443,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "gpt-4o-mini-realtime-preview",
+    "object": "model",
+    "created": 1734387380,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4o-mini-realtime-preview",
+    "openai": {
+      "id": "gpt-4o-mini-realtime-preview",
+      "object": "model",
+      "created": 1734387380,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "gpt-4o-mini-audio-preview",
+    "object": "model",
+    "created": 1734387424,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4o-mini-audio-preview",
+    "openai": {
+      "id": "gpt-4o-mini-audio-preview",
+      "object": "model",
+      "created": 1734387424,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "o3-mini",
+    "object": "model",
+    "created": 1737146383,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "o3-mini",
+    "openai": {
+      "id": "o3-mini",
+      "object": "model",
+      "created": 1737146383,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "gpt-4o-transcribe",
+    "object": "model",
+    "created": 1742068463,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4o-transcribe",
+    "openai": {
+      "id": "gpt-4o-transcribe",
+      "object": "model",
+      "created": 1742068463,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "gpt-4o-mini-transcribe",
+    "object": "model",
+    "created": 1742068596,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4o-mini-transcribe",
+    "openai": {
+      "id": "gpt-4o-mini-transcribe",
+      "object": "model",
+      "created": 1742068596,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "o3",
+    "object": "model",
+    "created": 1744225308,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "o3",
+    "openai": {
+      "id": "o3",
+      "object": "model",
+      "created": 1744225308,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "o4-mini",
+    "object": "model",
+    "created": 1744225351,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "o4-mini",
+    "openai": {
+      "id": "o4-mini",
+      "object": "model",
+      "created": 1744225351,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "gpt-4.1",
+    "object": "model",
+    "created": 1744316542,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4.1",
+    "openai": {
+      "id": "gpt-4.1",
+      "object": "model",
+      "created": 1744316542,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": true
+  },
+  {
+    "id": "gpt-4.1-mini",
+    "object": "model",
+    "created": 1744318173,
+    "owned_by": "openai",
+    "connection_type": "external",
+    "name": "gpt-4.1-mini",
+    "openai": {
+      "id": "gpt-4.1-mini",
+      "object": "model",
+      "created": 1744318173,
+      "owned_by": "system",
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "is_active": false
+  },
+  {
+    "id": "moonshotai/kimi-k2-instruct",
+    "object": "model",
+    "created": 1752435491,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 16384,
+    "connection_type": "external",
+    "name": "moonshotai/kimi-k2-instruct",
+    "openai": {
+      "id": "moonshotai/kimi-k2-instruct",
+      "object": "model",
+      "created": 1752435491,
+      "owned_by": "Moonshot AI",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 16384,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "whisper-large-v3",
+    "object": "model",
+    "created": 1693721698,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 448,
+    "public_apps": null,
+    "max_completion_tokens": 448,
+    "connection_type": "external",
+    "name": "whisper-large-v3",
+    "openai": {
+      "id": "whisper-large-v3",
+      "object": "model",
+      "created": 1693721698,
+      "owned_by": "OpenAI",
+      "active": true,
+      "context_window": 448,
+      "public_apps": null,
+      "max_completion_tokens": 448,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "playai-tts-arabic",
+    "object": "model",
+    "created": 1740682783,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 8192,
+    "public_apps": null,
+    "max_completion_tokens": 8192,
+    "connection_type": "external",
+    "name": "playai-tts-arabic",
+    "openai": {
+      "id": "playai-tts-arabic",
+      "object": "model",
+      "created": 1740682783,
+      "owned_by": "PlayAI",
+      "active": true,
+      "context_window": 8192,
+      "public_apps": null,
+      "max_completion_tokens": 8192,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "object": "model",
+    "created": 1743874824,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 8192,
+    "connection_type": "external",
+    "name": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "openai": {
+      "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+      "object": "model",
+      "created": 1743874824,
+      "owned_by": "Meta",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 8192,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "playai-tts",
+    "object": "model",
+    "created": 1740682771,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 8192,
+    "public_apps": null,
+    "max_completion_tokens": 8192,
+    "connection_type": "external",
+    "name": "playai-tts",
+    "openai": {
+      "id": "playai-tts",
+      "object": "model",
+      "created": 1740682771,
+      "owned_by": "PlayAI",
+      "active": true,
+      "context_window": 8192,
+      "public_apps": null,
+      "max_completion_tokens": 8192,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "whisper-large-v3-turbo",
+    "object": "model",
+    "created": 1728413088,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 448,
+    "public_apps": null,
+    "max_completion_tokens": 448,
+    "connection_type": "external",
+    "name": "whisper-large-v3-turbo",
+    "openai": {
+      "id": "whisper-large-v3-turbo",
+      "object": "model",
+      "created": 1728413088,
+      "owned_by": "OpenAI",
+      "active": true,
+      "context_window": 448,
+      "public_apps": null,
+      "max_completion_tokens": 448,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "llama-3.3-70b-versatile",
+    "object": "model",
+    "created": 1733447754,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 32768,
+    "connection_type": "external",
+    "name": "llama-3.3-70b-versatile",
+    "openai": {
+      "id": "llama-3.3-70b-versatile",
+      "object": "model",
+      "created": 1733447754,
+      "owned_by": "Meta",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 32768,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": true
+  },
+  {
+    "id": "qwen/qwen3-32b",
+    "object": "model",
+    "created": 1748396646,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 40960,
+    "connection_type": "external",
+    "name": "qwen/qwen3-32b",
+    "openai": {
+      "id": "qwen/qwen3-32b",
+      "object": "model",
+      "created": 1748396646,
+      "owned_by": "Alibaba Cloud",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 40960,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "meta-llama/llama-guard-4-12b",
+    "object": "model",
+    "created": 1746743847,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 1024,
+    "connection_type": "external",
+    "name": "meta-llama/llama-guard-4-12b",
+    "openai": {
+      "id": "meta-llama/llama-guard-4-12b",
+      "object": "model",
+      "created": 1746743847,
+      "owned_by": "Meta",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 1024,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "moonshotai/kimi-k2-instruct-0905",
+    "object": "model",
+    "created": 1757046093,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 262144,
+    "public_apps": null,
+    "max_completion_tokens": 16384,
+    "connection_type": "external",
+    "name": "moonshotai/kimi-k2-instruct-0905",
+    "openai": {
+      "id": "moonshotai/kimi-k2-instruct-0905",
+      "object": "model",
+      "created": 1757046093,
+      "owned_by": "Moonshot AI",
+      "active": true,
+      "context_window": 262144,
+      "public_apps": null,
+      "max_completion_tokens": 16384,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "openai/gpt-oss-20b",
+    "object": "model",
+    "created": 1754407957,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 65536,
+    "connection_type": "external",
+    "name": "openai/gpt-oss-20b",
+    "openai": {
+      "id": "openai/gpt-oss-20b",
+      "object": "model",
+      "created": 1754407957,
+      "owned_by": "OpenAI",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 65536,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "object": "model",
+    "created": 1743877158,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 8192,
+    "connection_type": "external",
+    "name": "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "openai": {
+      "id": "meta-llama/llama-4-maverick-17b-128e-instruct",
+      "object": "model",
+      "created": 1743877158,
+      "owned_by": "Meta",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 8192,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "meta-llama/llama-prompt-guard-2-86m",
+    "object": "model",
+    "created": 1748632165,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 512,
+    "public_apps": null,
+    "max_completion_tokens": 512,
+    "connection_type": "external",
+    "name": "meta-llama/llama-prompt-guard-2-86m",
+    "openai": {
+      "id": "meta-llama/llama-prompt-guard-2-86m",
+      "object": "model",
+      "created": 1748632165,
+      "owned_by": "Meta",
+      "active": true,
+      "context_window": 512,
+      "public_apps": null,
+      "max_completion_tokens": 512,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "groq/compound-mini",
+    "object": "model",
+    "created": 1756949707,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 8192,
+    "connection_type": "external",
+    "name": "groq/compound-mini",
+    "openai": {
+      "id": "groq/compound-mini",
+      "object": "model",
+      "created": 1756949707,
+      "owned_by": "Groq",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 8192,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "llama-3.1-8b-instant",
+    "object": "model",
+    "created": 1693721698,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 131072,
+    "connection_type": "external",
+    "name": "llama-3.1-8b-instant",
+    "openai": {
+      "id": "llama-3.1-8b-instant",
+      "object": "model",
+      "created": 1693721698,
+      "owned_by": "Meta",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 131072,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": true
+  },
+  {
+    "id": "allam-2-7b",
+    "object": "model",
+    "created": 1737672203,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 4096,
+    "public_apps": null,
+    "max_completion_tokens": 4096,
+    "connection_type": "external",
+    "name": "allam-2-7b",
+    "openai": {
+      "id": "allam-2-7b",
+      "object": "model",
+      "created": 1737672203,
+      "owned_by": "SDAIA",
+      "active": true,
+      "context_window": 4096,
+      "public_apps": null,
+      "max_completion_tokens": 4096,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "openai/gpt-oss-120b",
+    "object": "model",
+    "created": 1754408224,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 65536,
+    "connection_type": "external",
+    "name": "openai/gpt-oss-120b",
+    "openai": {
+      "id": "openai/gpt-oss-120b",
+      "object": "model",
+      "created": 1754408224,
+      "owned_by": "OpenAI",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 65536,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "meta-llama/llama-prompt-guard-2-22m",
+    "object": "model",
+    "created": 1748632101,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 512,
+    "public_apps": null,
+    "max_completion_tokens": 512,
+    "connection_type": "external",
+    "name": "meta-llama/llama-prompt-guard-2-22m",
+    "openai": {
+      "id": "meta-llama/llama-prompt-guard-2-22m",
+      "object": "model",
+      "created": 1748632101,
+      "owned_by": "Meta",
+      "active": true,
+      "context_window": 512,
+      "public_apps": null,
+      "max_completion_tokens": 512,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "groq/compound",
+    "object": "model",
+    "created": 1756949530,
+    "owned_by": "openai",
+    "active": true,
+    "context_window": 131072,
+    "public_apps": null,
+    "max_completion_tokens": 8192,
+    "connection_type": "external",
+    "name": "groq/compound",
+    "openai": {
+      "id": "groq/compound",
+      "object": "model",
+      "created": 1756949530,
+      "owned_by": "Groq",
+      "active": true,
+      "context_window": 131072,
+      "public_apps": null,
+      "max_completion_tokens": 8192,
+      "connection_type": "external"
+    },
+    "urlIdx": 1,
+    "is_active": false
+  },
+  {
+    "id": "models/embedding-gecko-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Embedding Gecko",
+    "connection_type": "external",
+    "name": "models/embedding-gecko-001",
+    "openai": {
+      "id": "models/embedding-gecko-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Embedding Gecko",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-pro-preview-03-25",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Pro Preview 03-25",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-pro-preview-03-25",
+    "openai": {
+      "id": "models/gemini-2.5-pro-preview-03-25",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Pro Preview 03-25",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-preview-05-20",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Preview 05-20",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-preview-05-20",
+    "openai": {
+      "id": "models/gemini-2.5-flash-preview-05-20",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Preview 05-20",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash",
+    "openai": {
+      "id": "models/gemini-2.5-flash",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": true
+  },
+  {
+    "id": "models/gemini-2.5-flash-lite-preview-06-17",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash-Lite Preview 06-17",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-lite-preview-06-17",
+    "openai": {
+      "id": "models/gemini-2.5-flash-lite-preview-06-17",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash-Lite Preview 06-17",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-pro-preview-05-06",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Pro Preview 05-06",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-pro-preview-05-06",
+    "openai": {
+      "id": "models/gemini-2.5-pro-preview-05-06",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Pro Preview 05-06",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-pro-preview-06-05",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Pro Preview",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-pro-preview-06-05",
+    "openai": {
+      "id": "models/gemini-2.5-pro-preview-06-05",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Pro Preview",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-pro",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Pro",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-pro",
+    "openai": {
+      "id": "models/gemini-2.5-pro",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Pro",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": true
+  },
+  {
+    "id": "models/gemini-2.0-flash-exp",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Flash Experimental",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-exp",
+    "openai": {
+      "id": "models/gemini-2.0-flash-exp",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Flash Experimental",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Flash",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash",
+    "openai": {
+      "id": "models/gemini-2.0-flash",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Flash",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Flash 001",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-001",
+    "openai": {
+      "id": "models/gemini-2.0-flash-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Flash 001",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-lite-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Flash-Lite 001",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-lite-001",
+    "openai": {
+      "id": "models/gemini-2.0-flash-lite-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Flash-Lite 001",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-lite",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Flash-Lite",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-lite",
+    "openai": {
+      "id": "models/gemini-2.0-flash-lite",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Flash-Lite",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-lite-preview-02-05",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Flash-Lite Preview 02-05",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-lite-preview-02-05",
+    "openai": {
+      "id": "models/gemini-2.0-flash-lite-preview-02-05",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Flash-Lite Preview 02-05",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-lite-preview",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Flash-Lite Preview",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-lite-preview",
+    "openai": {
+      "id": "models/gemini-2.0-flash-lite-preview",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Flash-Lite Preview",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-pro-exp",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Pro Experimental",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-pro-exp",
+    "openai": {
+      "id": "models/gemini-2.0-pro-exp",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Pro Experimental",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-pro-exp-02-05",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Pro Experimental 02-05",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-pro-exp-02-05",
+    "openai": {
+      "id": "models/gemini-2.0-pro-exp-02-05",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Pro Experimental 02-05",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-exp-1206",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Experimental 1206",
+    "connection_type": "external",
+    "name": "models/gemini-exp-1206",
+    "openai": {
+      "id": "models/gemini-exp-1206",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Experimental 1206",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-thinking-exp-01-21",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Preview 05-20",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-thinking-exp-01-21",
+    "openai": {
+      "id": "models/gemini-2.0-flash-thinking-exp-01-21",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Preview 05-20",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-thinking-exp",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Preview 05-20",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-thinking-exp",
+    "openai": {
+      "id": "models/gemini-2.0-flash-thinking-exp",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Preview 05-20",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-thinking-exp-1219",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Preview 05-20",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-thinking-exp-1219",
+    "openai": {
+      "id": "models/gemini-2.0-flash-thinking-exp-1219",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Preview 05-20",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-preview-tts",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Preview TTS",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-preview-tts",
+    "openai": {
+      "id": "models/gemini-2.5-flash-preview-tts",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Preview TTS",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-pro-preview-tts",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Pro Preview TTS",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-pro-preview-tts",
+    "openai": {
+      "id": "models/gemini-2.5-pro-preview-tts",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Pro Preview TTS",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/learnlm-2.0-flash-experimental",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "LearnLM 2.0 Flash Experimental",
+    "connection_type": "external",
+    "name": "models/learnlm-2.0-flash-experimental",
+    "openai": {
+      "id": "models/learnlm-2.0-flash-experimental",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "LearnLM 2.0 Flash Experimental",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemma-3-1b-it",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemma 3 1B",
+    "connection_type": "external",
+    "name": "models/gemma-3-1b-it",
+    "openai": {
+      "id": "models/gemma-3-1b-it",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemma 3 1B",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemma-3-4b-it",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemma 3 4B",
+    "connection_type": "external",
+    "name": "models/gemma-3-4b-it",
+    "openai": {
+      "id": "models/gemma-3-4b-it",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemma 3 4B",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemma-3-12b-it",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemma 3 12B",
+    "connection_type": "external",
+    "name": "models/gemma-3-12b-it",
+    "openai": {
+      "id": "models/gemma-3-12b-it",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemma 3 12B",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemma-3-27b-it",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemma 3 27B",
+    "connection_type": "external",
+    "name": "models/gemma-3-27b-it",
+    "openai": {
+      "id": "models/gemma-3-27b-it",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemma 3 27B",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemma-3n-e4b-it",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemma 3n E4B",
+    "connection_type": "external",
+    "name": "models/gemma-3n-e4b-it",
+    "openai": {
+      "id": "models/gemma-3n-e4b-it",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemma 3n E4B",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemma-3n-e2b-it",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemma 3n E2B",
+    "connection_type": "external",
+    "name": "models/gemma-3n-e2b-it",
+    "openai": {
+      "id": "models/gemma-3n-e2b-it",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemma 3n E2B",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-flash-latest",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Flash Latest",
+    "connection_type": "external",
+    "name": "models/gemini-flash-latest",
+    "openai": {
+      "id": "models/gemini-flash-latest",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Flash Latest",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-flash-lite-latest",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Flash-Lite Latest",
+    "connection_type": "external",
+    "name": "models/gemini-flash-lite-latest",
+    "openai": {
+      "id": "models/gemini-flash-lite-latest",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Flash-Lite Latest",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-pro-latest",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Pro Latest",
+    "connection_type": "external",
+    "name": "models/gemini-pro-latest",
+    "openai": {
+      "id": "models/gemini-pro-latest",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Pro Latest",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-lite",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash-Lite",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-lite",
+    "openai": {
+      "id": "models/gemini-2.5-flash-lite",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash-Lite",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": true
+  },
+  {
+    "id": "models/gemini-2.5-flash-image-preview",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Nano Banana",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-image-preview",
+    "openai": {
+      "id": "models/gemini-2.5-flash-image-preview",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Nano Banana",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-image",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Nano Banana",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-image",
+    "openai": {
+      "id": "models/gemini-2.5-flash-image",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Nano Banana",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-preview-09-2025",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Preview Sep 2025",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-preview-09-2025",
+    "openai": {
+      "id": "models/gemini-2.5-flash-preview-09-2025",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Preview Sep 2025",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-lite-preview-09-2025",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash-Lite Preview Sep 2025",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-lite-preview-09-2025",
+    "openai": {
+      "id": "models/gemini-2.5-flash-lite-preview-09-2025",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash-Lite Preview Sep 2025",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-robotics-er-1.5-preview",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Robotics-ER 1.5 Preview",
+    "connection_type": "external",
+    "name": "models/gemini-robotics-er-1.5-preview",
+    "openai": {
+      "id": "models/gemini-robotics-er-1.5-preview",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Robotics-ER 1.5 Preview",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-computer-use-preview-10-2025",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Computer Use Preview 10-2025",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-computer-use-preview-10-2025",
+    "openai": {
+      "id": "models/gemini-2.5-computer-use-preview-10-2025",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Computer Use Preview 10-2025",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/embedding-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Embedding 001",
+    "connection_type": "external",
+    "name": "models/embedding-001",
+    "openai": {
+      "id": "models/embedding-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Embedding 001",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/text-embedding-004",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Text Embedding 004",
+    "connection_type": "external",
+    "name": "models/text-embedding-004",
+    "openai": {
+      "id": "models/text-embedding-004",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Text Embedding 004",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-embedding-exp-03-07",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Embedding Experimental 03-07",
+    "connection_type": "external",
+    "name": "models/gemini-embedding-exp-03-07",
+    "openai": {
+      "id": "models/gemini-embedding-exp-03-07",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Embedding Experimental 03-07",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-embedding-exp",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Embedding Experimental",
+    "connection_type": "external",
+    "name": "models/gemini-embedding-exp",
+    "openai": {
+      "id": "models/gemini-embedding-exp",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Embedding Experimental",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-embedding-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Embedding 001",
+    "connection_type": "external",
+    "name": "models/gemini-embedding-001",
+    "openai": {
+      "id": "models/gemini-embedding-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Embedding 001",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/aqa",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Model that performs Attributed Question Answering.",
+    "connection_type": "external",
+    "name": "models/aqa",
+    "openai": {
+      "id": "models/aqa",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Model that performs Attributed Question Answering.",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/imagen-3.0-generate-002",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Imagen 3.0",
+    "connection_type": "external",
+    "name": "models/imagen-3.0-generate-002",
+    "openai": {
+      "id": "models/imagen-3.0-generate-002",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Imagen 3.0",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/imagen-4.0-generate-preview-06-06",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Imagen 4 (Preview)",
+    "connection_type": "external",
+    "name": "models/imagen-4.0-generate-preview-06-06",
+    "openai": {
+      "id": "models/imagen-4.0-generate-preview-06-06",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Imagen 4 (Preview)",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/imagen-4.0-ultra-generate-preview-06-06",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Imagen 4 Ultra (Preview)",
+    "connection_type": "external",
+    "name": "models/imagen-4.0-ultra-generate-preview-06-06",
+    "openai": {
+      "id": "models/imagen-4.0-ultra-generate-preview-06-06",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Imagen 4 Ultra (Preview)",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/imagen-4.0-generate-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Imagen 4",
+    "connection_type": "external",
+    "name": "models/imagen-4.0-generate-001",
+    "openai": {
+      "id": "models/imagen-4.0-generate-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Imagen 4",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/imagen-4.0-ultra-generate-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Imagen 4 Ultra",
+    "connection_type": "external",
+    "name": "models/imagen-4.0-ultra-generate-001",
+    "openai": {
+      "id": "models/imagen-4.0-ultra-generate-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Imagen 4 Ultra",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/imagen-4.0-fast-generate-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Imagen 4 Fast",
+    "connection_type": "external",
+    "name": "models/imagen-4.0-fast-generate-001",
+    "openai": {
+      "id": "models/imagen-4.0-fast-generate-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Imagen 4 Fast",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/veo-2.0-generate-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Veo 2",
+    "connection_type": "external",
+    "name": "models/veo-2.0-generate-001",
+    "openai": {
+      "id": "models/veo-2.0-generate-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Veo 2",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/veo-3.0-generate-preview",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Veo 3",
+    "connection_type": "external",
+    "name": "models/veo-3.0-generate-preview",
+    "openai": {
+      "id": "models/veo-3.0-generate-preview",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Veo 3",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/veo-3.0-fast-generate-preview",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Veo 3 fast",
+    "connection_type": "external",
+    "name": "models/veo-3.0-fast-generate-preview",
+    "openai": {
+      "id": "models/veo-3.0-fast-generate-preview",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Veo 3 fast",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/veo-3.0-generate-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Veo 3",
+    "connection_type": "external",
+    "name": "models/veo-3.0-generate-001",
+    "openai": {
+      "id": "models/veo-3.0-generate-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Veo 3",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/veo-3.0-fast-generate-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Veo 3 fast",
+    "connection_type": "external",
+    "name": "models/veo-3.0-fast-generate-001",
+    "openai": {
+      "id": "models/veo-3.0-fast-generate-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Veo 3 fast",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-preview-native-audio-dialog",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Preview Native Audio Dialog",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-preview-native-audio-dialog",
+    "openai": {
+      "id": "models/gemini-2.5-flash-preview-native-audio-dialog",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Preview Native Audio Dialog",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-exp-native-audio-thinking-dialog",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Exp Native Audio Thinking Dialog",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-exp-native-audio-thinking-dialog",
+    "openai": {
+      "id": "models/gemini-2.5-flash-exp-native-audio-thinking-dialog",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Exp Native Audio Thinking Dialog",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.0-flash-live-001",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.0 Flash 001",
+    "connection_type": "external",
+    "name": "models/gemini-2.0-flash-live-001",
+    "openai": {
+      "id": "models/gemini-2.0-flash-live-001",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.0 Flash 001",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-live-2.5-flash-preview",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini Live 2.5 Flash Preview",
+    "connection_type": "external",
+    "name": "models/gemini-live-2.5-flash-preview",
+    "openai": {
+      "id": "models/gemini-live-2.5-flash-preview",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini Live 2.5 Flash Preview",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-live-preview",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Live Preview",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-live-preview",
+    "openai": {
+      "id": "models/gemini-2.5-flash-live-preview",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Live Preview",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-native-audio-latest",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Native Audio Latest",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-native-audio-latest",
+    "openai": {
+      "id": "models/gemini-2.5-flash-native-audio-latest",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Native Audio Latest",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/gemini-2.5-flash-native-audio-preview-09-2025",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Gemini 2.5 Flash Native Audio Preview 09-2025",
+    "connection_type": "external",
+    "name": "models/gemini-2.5-flash-native-audio-preview-09-2025",
+    "openai": {
+      "id": "models/gemini-2.5-flash-native-audio-preview-09-2025",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Gemini 2.5 Flash Native Audio Preview 09-2025",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "models/lyria-realtime-exp",
+    "object": "model",
+    "owned_by": "openai",
+    "display_name": "Lyria Realtime Experimental",
+    "connection_type": "external",
+    "name": "models/lyria-realtime-exp",
+    "openai": {
+      "id": "models/lyria-realtime-exp",
+      "object": "model",
+      "owned_by": "google",
+      "display_name": "Lyria Realtime Experimental",
+      "connection_type": "external"
+    },
+    "urlIdx": 2,
+    "is_active": false
+  },
+  {
+    "id": "claude-sonnet-4-5-20250929",
+    "name": "Claude Sonnet 4.5",
+    "owned_by": "anthropic",
+    "is_active": true,
+    "urlIdx": 3
+  },
+  {
+    "id": "claude-opus-4-1-20250805",
+    "name": "Claude Opus 4.1",
+    "owned_by": "anthropic",
+    "is_active": true,
+    "urlIdx": 3
+  },
+  {
+    "id": "claude-sonnet-4-20250514",
+    "name": "Claude Sonnet 4",
+    "owned_by": "anthropic",
+    "is_active": true,
+    "urlIdx": 3
+  },
+  {
+    "id": "claude-3-5-haiku-20241022",
+    "name": "Claude 3.5 Haiku",
+    "owned_by": "anthropic",
+    "is_active": true,
+    "urlIdx": 3
+  }
+]

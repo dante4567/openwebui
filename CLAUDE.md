@@ -302,6 +302,53 @@ docker exec openwebui curl http://caldav-tool:8000/
 - Monthly review recommended (first Sunday)
 - Provider update patterns and migration guides included
 
+## Utility Scripts
+
+**Experimental scripts for maintenance and debugging** (gitignored, not for production):
+
+1. **fix_litellm_routing.py** - Fix OpenWebUI to route all LLM traffic through LiteLLM
+   - **Purpose**: Update OpenWebUI database to use LiteLLM proxy instead of direct provider APIs
+   - **When to use**: After fresh install, or if models bypass LiteLLM (no caching/fallbacks)
+   - **How**: Copy database from container, run script, copy back, restart OpenWebUI
+   - **Result**: All models route through `http://litellm:4000`, Redis caching works
+   - **See**: Troubleshooting section #7 for detailed steps
+
+2. **import_config_v2.py** - Import OpenWebUI configuration from JSON
+   - **Purpose**: Bulk import settings, models, tools, prompts into OpenWebUI database
+   - **When to use**: Restoring from backup, migrating to new instance
+   - **How**: Place config JSON in `/tmp/config.json`, run script inside container
+   - **Alternative**: Use OpenWebUI GUI: Settings → Admin → Database → Import
+
+3. **get_llm_models.py** - Fetch current models and pricing from provider APIs
+   - **Purpose**: Check what models are available from OpenAI, Anthropic, Google, Groq
+   - **When to use**: Monthly review to detect new/deprecated models
+   - **How**: `python3 get_llm_models.py` (requires `.env` with API keys)
+   - **Output**: Model IDs with pricing and context window info
+
+4. **fetch_models.sh** - Same as get_llm_models.py but in Bash
+   - **Purpose**: Quick check of available models from all providers
+   - **When to use**: Alternative to Python script, faster for quick checks
+   - **How**: `./fetch_models.sh` (requires `.env` with API keys)
+   - **Output**: Formatted list of models grouped by provider
+
+5. **apply_model_visibility.py** - Set model visibility in OpenWebUI
+   - **Purpose**: Bulk hide/show models in GUI based on JSON export
+   - **When to use**: After adding new provider, want to hide low-quality models
+   - **How**: Export models from GUI, edit JSON, run script
+   - **Alternative**: Manually toggle visibility in Settings → Models
+
+6. **show_rag_stats.py** - Display RAG document statistics and cost estimates
+   - **Purpose**: Analyze ChromaDB usage, estimate token costs for RAG context
+   - **When to use**: Monitor RAG costs, identify large documents
+   - **How**: `docker exec openwebui python3 /app/show_rag_stats.py`
+   - **Output**: Document count, total tokens, estimated monthly cost
+
+**Best practices:**
+- These scripts are **experimental** - always backup database before running
+- Scripts are gitignored to prevent accidental commit of API keys
+- For production use, prefer GUI operations or Docker exec commands
+- Test scripts on backup database first
+
 ## GTD Workflow Example
 
 **Test the full stack:**
