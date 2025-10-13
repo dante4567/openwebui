@@ -134,13 +134,13 @@ if [ "$RESPONSE" == "200" ]; then
     if [ -n "$EVENT_ID" ] && [ "$EVENT_ID" != "null" ]; then
         print_pass "Event created with UID: ${EVENT_ID:0:8}..."
 
-        # Test event retrieval with relative date
-        print_test "Fetching event with relative date (tomorrow)..."
-        FETCH_RESPONSE=$(curl -s "http://localhost:8008/events?start_date=tomorrow&days_ahead=1" 2>/dev/null)
+        # Test event retrieval with absolute date (to avoid timezone issues)
+        print_test "Fetching event by date ($TOMORROW)..."
+        FETCH_RESPONSE=$(curl -s "http://localhost:8008/events?start_date=${TOMORROW}&days_ahead=1" 2>/dev/null)
         FOUND_EVENT=$(echo "$FETCH_RESPONSE" | jq -r ".[] | select(.uid==\"$EVENT_ID\") | .summary" 2>/dev/null)
 
         if [ "$FOUND_EVENT" == "$TEST_EVENT_SUMMARY" ]; then
-            print_pass "Event retrieved successfully (relative date support working)"
+            print_pass "Event retrieved successfully (persistence working)"
 
             # Test event deletion
             print_test "Deleting test event..."
@@ -152,7 +152,7 @@ if [ "$RESPONSE" == "200" ]; then
 
                 # Verify deletion
                 print_test "Verifying event was deleted..."
-                VERIFY_RESPONSE=$(curl -s "http://localhost:8008/events?start_date=tomorrow&days_ahead=1" 2>/dev/null)
+                VERIFY_RESPONSE=$(curl -s "http://localhost:8008/events?start_date=${TOMORROW}&days_ahead=1" 2>/dev/null)
                 STILL_EXISTS=$(echo "$VERIFY_RESPONSE" | jq -r ".[] | select(.uid==\"$EVENT_ID\") | .uid" 2>/dev/null)
 
                 if [ -z "$STILL_EXISTS" ]; then
