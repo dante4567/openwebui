@@ -45,12 +45,12 @@ jobs:
 
     - name: Build Docker images
       run: |
-        docker-compose build todoist-tool caldav-tool
+        docker compose build todoist-tool caldav-tool
 
     - name: Start services
       run: |
         # Start only the GTD tool containers (not full stack)
-        docker-compose up -d todoist-tool caldav-tool
+        docker compose up -d todoist-tool caldav-tool
 
         # Wait for services to be ready
         echo "Waiting for services to start..."
@@ -70,15 +70,15 @@ jobs:
       if: always()
       run: |
         echo "=== Todoist Tool Logs ==="
-        docker-compose logs todoist-tool
+        docker compose logs todoist-tool
 
         echo "=== CalDAV Tool Logs ==="
-        docker-compose logs caldav-tool
+        docker compose logs caldav-tool
 
     - name: Stop services
       if: always()
       run: |
-        docker-compose down -v
+        docker compose down -v
 
   config-validation:
     name: Configuration Validation
@@ -90,7 +90,7 @@ jobs:
 
     - name: Validate docker-compose.yml
       run: |
-        docker-compose config > /dev/null
+        docker compose config > /dev/null
         echo "✅ docker-compose.yml is valid"
 
     - name: Check for secrets in code
