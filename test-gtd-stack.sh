@@ -261,12 +261,13 @@ print_header "Test 9: Model Availability & Pricing"
 
 print_test "Checking expected models are configured..."
 
-# Expected budget-friendly models
+# Expected budget-friendly models (updated Oct 2025)
 EXPECTED_MODELS=(
     "gpt-4o-mini:OpenAI:0.15:0.60"
     "gpt-4o:OpenAI:2.50:10.00"
     "claude-3-5-sonnet:Anthropic:3.00:15.00"
-    "gemini-1.5-pro:Google:1.25:5.00"
+    "gemini-2.5-flash:Google:0.075:0.30"
+    "gemini-2.0-flash:Google:0.075:0.30"
     "llama-3.3-70b:Groq:0.59:0.79"
 )
 
@@ -276,6 +277,8 @@ OUTDATED_MODELS=(
     "gpt-4-1106"
     "claude-3-opus"
     "gpt-3.5-turbo"
+    "gemini-1.5-pro"
+    "gemini-1.5-flash"
 )
 
 # Check if API keys are set and test them with real API calls
@@ -365,7 +368,7 @@ if [ -n "$OPENAI_API_KEY" ] && [ "$OPENAI_API_KEY" != "your-key-here" ]; then
     if [ -n "$GOOGLE_API_KEY" ] && [ "$GOOGLE_API_KEY" != "your-key-here" ]; then
         ((KEYS_CONFIGURED++))
         print_test "Testing Google API with real request..."
-        GOOGLE_RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
+        GOOGLE_RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GOOGLE_API_KEY" \
             -H "Content-Type: application/json" \
             -d '{
                 "contents": [{"parts":[{"text":"test"}]}],
@@ -373,7 +376,7 @@ if [ -n "$OPENAI_API_KEY" ] && [ "$OPENAI_API_KEY" != "your-key-here" ]; then
             }' 2>/dev/null)
 
         if echo "$GOOGLE_RESPONSE" | jq -e '.candidates[0].content.parts[0].text' >/dev/null 2>&1; then
-            print_pass "Google API key working (gemini-1.5-flash)"
+            print_pass "Google API key working (gemini-2.0-flash)"
             ((KEYS_WORKING++))
         else
             ERROR=$(echo "$GOOGLE_RESPONSE" | jq -r '.error.message // "unknown error"' 2>/dev/null || echo "connection failed")
@@ -494,7 +497,7 @@ fi
 print_test "Checking LiteLLM proxy status..."
 LITELLM_STATUS=$(docker-compose ps --format json | jq -r 'select(.Service=="litellm") | .State' 2>/dev/null || echo "not_found")
 if [ "$LITELLM_STATUS" == "running" ]; then
-    LITELLM_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/health 2>/dev/null || echo "000")
+    LITELLM_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer sk-1234" http://localhost:4000/health 2>/dev/null || echo "000")
     if [ "$LITELLM_RESPONSE" == "200" ]; then
         print_pass "LiteLLM proxy running (unified API available)"
         print_warn "Currently using direct API connections. Consider migrating to LiteLLM for unified interface."
