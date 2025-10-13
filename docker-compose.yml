@@ -326,13 +326,11 @@ services:
       - "4000:4000"
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
-      - litellm-data:/app/data  # Persistent storage for cost tracking database
     env_file:
       - .env  # Load API keys from .env (MUST be before environment section)
     environment:
       - LITELLM_MASTER_KEY=sk-1234
-      - STORE_MODEL_IN_DB=True  # Enable model storage in database
-      - DATABASE_URL=sqlite:////app/data/litellm.db
+      - STORE_MODEL_IN_DB=False  # Disabled - requires PostgreSQL
     command: --config /app/config.yaml --port 4000 --detailed_debug
     restart: unless-stopped
     networks:

@@ -207,20 +207,20 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 **LiteLLM caching benefits:**
 - Redis caching enabled - repeated queries cost $0
 - Fallback chains prevent expensive failures
-- **Persistent cost tracking database** - SQLite at `/app/data/litellm.db`
-- **Admin UI enabled:** http://localhost:4000/ui (username: `admin`, password: `changeme123`)
+- Cost tracking in logs (verbose logging enabled)
 
 **Cost monitoring:**
-- **LiteLLM Admin UI:** http://localhost:4000/ui (**PRIMARY** - real-time tracking)
-  - Per-model spending breakdown
-  - Token usage analytics
-  - Request/response logs
-  - Set budget alerts
-  - Cost trends (daily/weekly)
-- OpenAI: https://platform.openai.com/usage
+- **LiteLLM logs:** `docker logs openwebui-litellm | grep -i cost`
+  - Shows cost per request in real-time
+  - Token usage breakdown (input/output)
+  - Model-specific costs
+- **LiteLLM API:** `curl http://localhost:4000/spend/logs -H "Authorization: Bearer sk-1234"`
+- OpenAI: https://platform.openai.com/usage (most detailed)
 - Groq: https://console.groq.com/
 - Anthropic: https://console.anthropic.com/
 - Google: https://console.cloud.google.com/
+
+**Note:** LiteLLM Admin UI requires PostgreSQL database (not enabled). Cost tracking via logs and provider dashboards is sufficient for GTD use case.
 
 **Recommendations:**
 - Use **Groq's llama-3.1-8b for cheapest** ($0.003/session - 10x cheaper than GPT-4o-mini)
