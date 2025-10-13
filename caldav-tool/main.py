@@ -202,6 +202,36 @@ def list_calendars():
         raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
 
 
+def parse_relative_date(date_str: str) -> datetime:
+    """
+    Parse relative date strings like 'today', 'tomorrow', 'yesterday'
+    or ISO format dates like '2025-10-14'
+    """
+    if not date_str:
+        return None
+
+    date_str_lower = date_str.lower().strip()
+    now = datetime.now()
+
+    # Handle relative dates
+    if date_str_lower == "today":
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif date_str_lower == "tomorrow":
+        return (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif date_str_lower == "yesterday":
+        return (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif date_str_lower == "next week":
+        return (now + timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif date_str_lower == "last week":
+        return (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        # Try to parse as ISO format
+        try:
+            return datetime.fromisoformat(date_str)
+        except ValueError:
+            raise ValueError(f"Invalid date format: '{date_str}'. Use ISO format (YYYY-MM-DD) or relative terms (today, tomorrow, yesterday, next week, last week)")
+
+
 @app.get("/events")
 @retry_on_failure(max_retries=3, base_delay=1.0)
 def list_events(
@@ -215,9 +245,9 @@ def list_events(
 
     Args:
         calendar_name: Specific calendar name (default: first calendar)
-        start_date: Start date in ISO format (default: today)
-        end_date: End date in ISO format (default: 30 days from now)
-        days_ahead: Number of days to look ahead (if end_date not specified)
+        start_date: Start date in ISO format (YYYY-MM-DD) or relative ('today', 'tomorrow', 'yesterday', 'next week', 'last week'). Default: today
+        end_date: End date in ISO format (YYYY-MM-DD) or relative. Default: 30 days from start_date
+        days_ahead: Number of days to look ahead (if end_date not specified). Default: 30
     """
     start_time = time.time()
     logger.info("Fetching events", extra={
@@ -245,9 +275,12 @@ def list_events(
         else:
             calendar = calendars[0]
 
-        # Date range
-        start = datetime.fromisoformat(start_date) if start_date else datetime.now()
-        end = datetime.fromisoformat(end_date) if end_date else start + timedelta(days=days_ahead)
+        # Date range - support relative dates
+        try:
+            start = parse_relative_date(start_date) if start_date else datetime.now()
+            end = parse_relative_date(end_date) if end_date else start + timedelta(days=days_ahead)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
         # Fetch events
         events = calendar.date_search(start=start, end=end)
@@ -265,7 +298,11 @@ def list_events(
                     "location": str(vevent.location.value) if hasattr(vevent, 'location') else None,
                     "uid": str(vevent.uid.value) if hasattr(vevent, 'uid') else None
                 })
-            except Exception:
+            except Exception as e:
+                logger.warning("Skipping malformed event during list", extra={
+                    "error": str(e),
+                    "event_url": event.url if hasattr(event, 'url') else None
+                })
                 continue
 
         latency = time.time() - start_time
@@ -350,8 +387,48 @@ def create_event(event: Event, calendar_name: Optional[str] = None):
         if event.location:
             cal.vevent.add('location').value = event.location
 
+        # Log the iCalendar data being sent
+        ical_data = cal.serialize()
+        logger.info("Sending iCalendar data to Nextcloud", extra={
+            "uid": uid,
+            "summary": event.summary,
+            "ical_length": len(ical_data)
+        })
+
         # Save to calendar
-        calendar.save_event(cal.serialize())
+        saved_event = calendar.save_event(ical_data)
+
+        # Verify the event was saved by trying to fetch it immediately
+        try:
+            # Wait a moment for sync
+            import time as time_module
+            time_module.sleep(0.5)
+
+            # Try to fetch the event we just created
+            search_start = datetime.fromisoformat(event.start) - timedelta(hours=1)
+            search_end = datetime.fromisoformat(event.end) + timedelta(hours=1)
+            verify_events = calendar.date_search(start=search_start, end=search_end)
+
+            found = False
+            for ve in verify_events:
+                try:
+                    vcal_check = vobject.readOne(ve.data)
+                    if hasattr(vcal_check.vevent, 'uid') and str(vcal_check.vevent.uid.value) == uid:
+                        found = True
+                        break
+                except:
+                    pass
+
+            if not found:
+                logger.error("Event creation verification failed - event not found after save", extra={
+                    "uid": uid,
+                    "summary": event.summary
+                })
+        except Exception as verify_error:
+            logger.warning("Could not verify event creation", extra={
+                "error": str(verify_error),
+                "uid": uid
+            })
 
         latency = time.time() - start_time
         logger.info("Event created successfully", extra={
