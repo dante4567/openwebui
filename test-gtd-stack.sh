@@ -111,8 +111,8 @@ else
     print_fail "Todoist API not responding (HTTP $RESPONSE)"
 fi
 
-# Test 4: CalDAV API
-print_header "Test 4: CalDAV API Connectivity"
+# Test 4: CalDAV API Full Lifecycle
+print_header "Test 4: CalDAV API Full Lifecycle (Create, Read, Delete)"
 
 print_test "Fetching CalDAV calendars..."
 RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8008/calendars 2>/dev/null || echo "000")
@@ -121,15 +121,57 @@ if [ "$RESPONSE" == "200" ]; then
     CAL_COUNT=$(echo "$CALENDARS" | jq '. | length' 2>/dev/null || echo "0")
     print_pass "CalDAV API connected (found $CAL_COUNT calendars)"
 
-    # Try to get events
-    print_test "Fetching CalDAV events..."
-    EVENT_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8008/events?days=30" 2>/dev/null || echo "000")
-    if [ "$EVENT_RESPONSE" == "200" ]; then
-        EVENTS=$(curl -s "http://localhost:8008/events?days=30" 2>/dev/null)
-        EVENT_COUNT=$(echo "$EVENTS" | jq '. | length' 2>/dev/null || echo "0")
-        print_pass "CalDAV events fetched (found $EVENT_COUNT events)"
+    # Test event creation
+    print_test "Creating test event..."
+    TOMORROW=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d "+1 day" +%Y-%m-%d 2>/dev/null)
+    TEST_EVENT_SUMMARY="Test Event - $(date +%s)"
+    CREATE_RESPONSE=$(curl -s -X POST http://localhost:8008/events \
+        -H "Content-Type: application/json" \
+        -d "{\"summary\":\"$TEST_EVENT_SUMMARY\",\"start\":\"${TOMORROW}T14:00:00\",\"end\":\"${TOMORROW}T15:00:00\",\"description\":\"Integration test event\"}" \
+        2>/dev/null)
+
+    EVENT_ID=$(echo "$CREATE_RESPONSE" | jq -r '.uid // empty' 2>/dev/null)
+    if [ -n "$EVENT_ID" ] && [ "$EVENT_ID" != "null" ]; then
+        print_pass "Event created with UID: ${EVENT_ID:0:8}..."
+
+        # Test event retrieval with relative date
+        print_test "Fetching event with relative date (tomorrow)..."
+        FETCH_RESPONSE=$(curl -s "http://localhost:8008/events?start_date=tomorrow&days_ahead=1" 2>/dev/null)
+        FOUND_EVENT=$(echo "$FETCH_RESPONSE" | jq -r ".[] | select(.uid==\"$EVENT_ID\") | .summary" 2>/dev/null)
+
+        if [ "$FOUND_EVENT" == "$TEST_EVENT_SUMMARY" ]; then
+            print_pass "Event retrieved successfully (relative date support working)"
+
+            # Test event deletion
+            print_test "Deleting test event..."
+            DELETE_RESPONSE=$(curl -s -X DELETE "http://localhost:8008/events/$EVENT_ID" 2>/dev/null)
+            DELETE_STATUS=$(echo "$DELETE_RESPONSE" | jq -r '.status // empty' 2>/dev/null)
+
+            if [ "$DELETE_STATUS" == "success" ]; then
+                print_pass "Event deleted successfully"
+
+                # Verify deletion
+                print_test "Verifying event was deleted..."
+                VERIFY_RESPONSE=$(curl -s "http://localhost:8008/events?start_date=tomorrow&days_ahead=1" 2>/dev/null)
+                STILL_EXISTS=$(echo "$VERIFY_RESPONSE" | jq -r ".[] | select(.uid==\"$EVENT_ID\") | .uid" 2>/dev/null)
+
+                if [ -z "$STILL_EXISTS" ]; then
+                    print_pass "Event deletion verified (full lifecycle working)"
+                else
+                    print_fail "Event still exists after deletion"
+                fi
+            else
+                print_fail "Failed to delete event"
+                # Cleanup attempt
+                curl -s -X DELETE "http://localhost:8008/events/$EVENT_ID" >/dev/null 2>&1
+            fi
+        else
+            print_fail "Event not found after creation (persistence issue)"
+            # Cleanup attempt
+            curl -s -X DELETE "http://localhost:8008/events/$EVENT_ID" >/dev/null 2>&1
+        fi
     else
-        print_fail "CalDAV events not accessible (HTTP $EVENT_RESPONSE)"
+        print_fail "Failed to create event (no UID returned)"
     fi
 else
     print_fail "CalDAV API not responding (HTTP $RESPONSE)"
