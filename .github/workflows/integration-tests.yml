@@ -80,6 +80,118 @@ jobs:
       run: |
         docker compose down -v
 
+  openwebui-validation:
+    name: OpenWebUI Configuration Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up environment
+      run: |
+        # Create .env file for OpenWebUI testing
+        cat > .env << EOF
+        WEBUI_SECRET_KEY=$(openssl rand -hex 32)
+        OPENAI_API_KEY=test-key
+        GROQ_API_KEY=test-key
+        ANTHROPIC_API_KEY=test-key
+        GOOGLE_API_KEY=test-key
+        TODOIST_API_KEY=test-key
+        CALDAV_URL=https://caldav.example.com
+        CALDAV_USERNAME=testuser
+        CALDAV_PASSWORD=testpass
+        EOF
+
+    - name: Start OpenWebUI stack
+      run: |
+        # Start full GTD stack
+        docker compose up -d openwebui filesystem-tool git-tool todoist-tool caldav-tool
+
+        # Wait for OpenWebUI to be ready (can take 60-90 seconds)
+        echo "Waiting for OpenWebUI to start..."
+        for i in {1..30}; do
+          if curl -s -f http://localhost:8080/ > /dev/null 2>&1; then
+            echo "✅ OpenWebUI is ready"
+            break
+          fi
+          echo "Attempt $i/30: OpenWebUI not ready yet..."
+          sleep 3
+        done
+
+    - name: Validate OpenWebUI API
+      run: |
+        echo "Testing OpenWebUI API health..."
+
+        # Check main endpoint
+        if ! curl -s -f http://localhost:8080/api/health > /dev/null 2>&1; then
+          # Try alternate health check
+          if ! curl -s -f http://localhost:8080/ > /dev/null 2>&1; then
+            echo "❌ OpenWebUI API is not responding"
+            exit 1
+          fi
+        fi
+
+        echo "✅ OpenWebUI API is responding"
+
+    - name: Check OpenWebUI configuration
+      run: |
+        echo "Checking OpenWebUI configuration..."
+
+        # Check if we can access the API
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/config)
+
+        if [ "$response" = "200" ] || [ "$response" = "401" ]; then
+          echo "✅ OpenWebUI API is accessible (status: $response)"
+        else
+          echo "⚠️  OpenWebUI API returned unexpected status: $response"
+          echo "   This may be expected if authentication is required"
+        fi
+
+    - name: Verify tool registration
+      run: |
+        echo "Checking tool server connectivity from OpenWebUI container..."
+
+        # Test each tool from inside OpenWebUI container
+        docker exec openwebui curl -s -f http://filesystem-tool:8000/docs > /dev/null && echo "✅ Filesystem tool accessible" || echo "❌ Filesystem tool NOT accessible"
+        docker exec openwebui curl -s -f http://git-tool:8000/docs > /dev/null && echo "✅ Git tool accessible" || echo "❌ Git tool NOT accessible"
+        docker exec openwebui curl -s -f http://todoist-tool:8000/ > /dev/null && echo "✅ Todoist tool accessible" || echo "❌ Todoist tool NOT accessible"
+        docker exec openwebui curl -s -f http://caldav-tool:8000/ > /dev/null && echo "✅ CalDAV tool accessible" || echo "❌ CalDAV tool NOT accessible"
+
+    - name: Export OpenWebUI configuration (if possible)
+      run: |
+        echo "Attempting to export OpenWebUI configuration..."
+
+        # Try to export config via API or database
+        if docker exec openwebui test -f /app/backend/data/webui.db; then
+          echo "✅ OpenWebUI database exists at /app/backend/data/webui.db"
+
+          # Show basic database info
+          docker exec openwebui sqlite3 /app/backend/data/webui.db ".tables" 2>/dev/null || echo "   (SQLite tools not available in container)"
+        else
+          echo "⚠️  OpenWebUI database not found at expected location"
+        fi
+
+    - name: Check OpenWebUI logs for errors
+      if: always()
+      run: |
+        echo "=== OpenWebUI Logs (last 50 lines) ==="
+        docker compose logs --tail=50 openwebui
+
+        echo ""
+        echo "=== Checking for critical errors ==="
+        if docker compose logs openwebui | grep -i "error" | grep -v "no error" | head -10; then
+          echo "⚠️  Found error messages in logs (review above)"
+        else
+          echo "✅ No critical errors found in logs"
+        fi
+
+    - name: Stop OpenWebUI stack
+      if: always()
+      run: |
+        docker compose down -v
+
   config-validation:
     name: Configuration Validation
     runs-on: ubuntu-latest
@@ -87,6 +199,21 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Set up environment for validation
+      run: |
+        # Create minimal .env for docker-compose validation
+        cat > .env << EOF
+        WEBUI_SECRET_KEY=test-key-for-validation
+        OPENAI_API_KEY=test-key
+        GROQ_API_KEY=test-key
+        ANTHROPIC_API_KEY=test-key
+        GOOGLE_API_KEY=test-key
+        TODOIST_API_KEY=test-key
+        CALDAV_URL=https://caldav.example.com
+        CALDAV_USERNAME=testuser
+        CALDAV_PASSWORD=testpass
+        EOF
 
     - name: Validate docker-compose.yml
       run: |

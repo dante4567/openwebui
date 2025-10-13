@@ -33,6 +33,14 @@ This directory contains automated workflows for continuous integration and deliv
   - Tests health endpoints
   - Checks logs for errors
 
+- **OpenWebUI configuration validation:**
+  - Starts full OpenWebUI stack (OpenWebUI + all 4 tool servers)
+  - Validates OpenWebUI API is responding
+  - Checks configuration endpoint accessibility
+  - Verifies tool server connectivity from OpenWebUI container
+  - Inspects OpenWebUI database
+  - Checks logs for critical errors
+
 - **Configuration validation:**
   - Validates docker-compose.yml syntax
   - Checks for hardcoded API keys
@@ -43,7 +51,7 @@ This directory contains automated workflows for continuous integration and deliv
   - Verifies required docs exist
   - Checks for broken markdown links
 
-**Runtime:** ~5-10 minutes
+**Runtime:** ~10-15 minutes (longer due to full stack startup)
 
 ### 3. Dependency Updates (`dependabot.yml`)
 

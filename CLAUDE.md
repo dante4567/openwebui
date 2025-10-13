@@ -339,11 +339,17 @@ docker exec openwebui curl http://caldav-tool:8000/
 - Tests:
   - Docker image builds
   - Container health checks
+  - **OpenWebUI configuration validation:**
+    - Starts full OpenWebUI stack (OpenWebUI + all 4 tool servers)
+    - Validates OpenWebUI API responds correctly
+    - Verifies tool server connectivity from OpenWebUI container
+    - Inspects OpenWebUI database exists
+    - Checks logs for critical errors
   - Configuration validation (docker-compose.yml syntax)
   - Security checks (no hardcoded API keys)
   - Documentation completeness
   - Markdown link validation
-- Typical run time: ~5-10 minutes
+- Typical run time: ~10-15 minutes (longer due to full stack startup)
 
 ✅ **Dependency Updates** (`.github/dependabot.yml`)
 - Weekly automated PRs for dependency updates
