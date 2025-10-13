@@ -268,6 +268,15 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
    - **Verify**: All models should show `urlIdx: 0` in Settings → Admin → Models export, not multiple urlIdx values
    - **Test caching**: Make same API call twice - second call should be 10-20x faster (cached)
 
+8. **Tools not showing in database / Understanding tool registration**:
+   - **There are TWO types of tool servers** (as of Oct 2025):
+     - **Global Tool Servers**: Admin-registered, server-side requests, shared across all users, stored in `config` table under `tool_server.connections`
+     - **User Tool Servers**: User-registered, client-side requests, per-user, stored in `tool` table
+   - **GTD tools are Global Tool Servers** (correct for production deployment)
+   - **Database query**: Use `SELECT data FROM config WHERE id=1` and parse JSON `tool_server.connections` array
+   - **NOT in tool table**: Querying `tool` table will show 0 results - this is expected
+   - **Verification**: Test script now checks config table correctly (Test 8)
+
 **Debug connectivity:**
 ```bash
 # Test from OpenWebUI container

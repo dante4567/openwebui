@@ -288,37 +288,43 @@ else
 fi
 
 # Test 8: OpenWebUI Tool Registration
-print_header "Test 8: OpenWebUI Tool Registration (via Database)"
+print_header "Test 8: OpenWebUI Global Tool Server Registration"
 
-print_test "Querying OpenWebUI database for registered tools..."
+print_test "Querying OpenWebUI database for Global Tool Servers..."
 
-# Query the database directly using Python (always available in container)
-TOOLS_DB_RESULT=$(docker exec openwebui python3 -c "
+# Query the config table for tool_server.connections (where Global Tool Servers are stored)
+TOOLS_CONFIG_RESULT=$(docker exec openwebui python3 -c "
 import sqlite3
 import json
 try:
     conn = sqlite3.connect('/app/backend/data/webui.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT id, name, meta FROM tool')
-    tools = cursor.fetchall()
-    result = [{'id': t[0], 'name': t[1]} for t in tools]
-    print(json.dumps(result))
+    cursor.execute('SELECT data FROM config WHERE id=1')
+    config_row = cursor.fetchone()
+    if config_row:
+        config = json.loads(config_row[0])
+        connections = config.get('tool_server', {}).get('connections', [])
+        result = [{'name': c['info']['name'], 'url': c['url'], 'enabled': c['config']['enable']} for c in connections]
+        print(json.dumps(result))
+    else:
+        print(json.dumps([]))
 except Exception as e:
     print(json.dumps({'error': str(e)}))
 " 2>/dev/null)
 
-TOOL_COUNT=$(echo "$TOOLS_DB_RESULT" | jq '. | length' 2>/dev/null || echo "0")
+TOOL_COUNT=$(echo "$TOOLS_CONFIG_RESULT" | jq '. | length' 2>/dev/null || echo "0")
 
 if [ "$TOOL_COUNT" -gt 0 ]; then
-    print_pass "Found $TOOL_COUNT registered tools in database"
+    ENABLED_COUNT=$(echo "$TOOLS_CONFIG_RESULT" | jq '[.[] | select(.enabled==true)] | length' 2>/dev/null || echo "0")
+    print_pass "Found $TOOL_COUNT Global Tool Servers ($ENABLED_COUNT enabled)"
 
     # Check for GTD tools (caldav, todoist, filesystem, git)
     print_test "Verifying GTD tools are registered..."
 
-    CALDAV_FOUND=$(echo "$TOOLS_DB_RESULT" | jq -r '.[] | select(.name | test("caldav|calendar"; "i")) | .name' 2>/dev/null | head -1)
-    TODOIST_FOUND=$(echo "$TOOLS_DB_RESULT" | jq -r '.[] | select(.name | test("todoist|task"; "i")) | .name' 2>/dev/null | head -1)
-    FILESYSTEM_FOUND=$(echo "$TOOLS_DB_RESULT" | jq -r '.[] | select(.name | test("filesystem|file"; "i")) | .name' 2>/dev/null | head -1)
-    GIT_FOUND=$(echo "$TOOLS_DB_RESULT" | jq -r '.[] | select(.name | test("git"; "i")) | .name' 2>/dev/null | head -1)
+    CALDAV_FOUND=$(echo "$TOOLS_CONFIG_RESULT" | jq -r '.[] | select(.name | test("caldav|calendar"; "i")) | .name' 2>/dev/null | head -1)
+    TODOIST_FOUND=$(echo "$TOOLS_CONFIG_RESULT" | jq -r '.[] | select(.name | test("todoist|task"; "i")) | .name' 2>/dev/null | head -1)
+    FILESYSTEM_FOUND=$(echo "$TOOLS_CONFIG_RESULT" | jq -r '.[] | select(.name | test("filesystem"; "i")) | .name' 2>/dev/null | head -1)
+    GIT_FOUND=$(echo "$TOOLS_CONFIG_RESULT" | jq -r '.[] | select(.name | test("git-tool"; "i")) | .name' 2>/dev/null | head -1)
 
     GTD_TOOLS_FOUND=0
     [ -n "$CALDAV_FOUND" ] && GTD_TOOLS_FOUND=$((GTD_TOOLS_FOUND + 1))
@@ -328,6 +334,8 @@ if [ "$TOOL_COUNT" -gt 0 ]; then
 
     if [ $GTD_TOOLS_FOUND -eq 4 ]; then
         print_pass "All 4 GTD tools registered (CalDAV, Todoist, Filesystem, Git)"
+        echo "    Registered Global Tool Servers:"
+        echo "$TOOLS_CONFIG_RESULT" | jq -r '.[] | "      • \(.name) - \(.url) [\(if .enabled then "enabled" else "disabled" end)]"' 2>/dev/null
     elif [ $GTD_TOOLS_FOUND -gt 0 ]; then
         print_warn "Only $GTD_TOOLS_FOUND/4 GTD tools registered:"
         [ -n "$CALDAV_FOUND" ] && echo "    ✓ $CALDAV_FOUND"
@@ -338,10 +346,10 @@ if [ "$TOOL_COUNT" -gt 0 ]; then
         [ -z "$TODOIST_FOUND" ] && echo "    ✗ Todoist tool missing"
         [ -z "$FILESYSTEM_FOUND" ] && echo "    ✗ Filesystem tool missing"
         [ -z "$GIT_FOUND" ] && echo "    ✗ Git tool missing"
-        print_warn "Add missing tools via: Settings → Tools → Import Tool"
+        print_warn "Add missing tools via: Admin Settings → Tools → + Add Tool Server"
     else
-        print_fail "No GTD tools registered in OpenWebUI database"
-        print_warn "Add tools via: Settings → Tools → Import Tool"
+        print_fail "No GTD tools registered as Global Tool Servers"
+        print_warn "Add tools via: Admin Settings → Tools → + Add Tool Server"
         print_warn "URLs:"
         print_warn "  • CalDAV: http://caldav-tool:8000/openapi.json"
         print_warn "  • Todoist: http://todoist-tool:8000/openapi.json"
@@ -349,8 +357,8 @@ if [ "$TOOL_COUNT" -gt 0 ]; then
         print_warn "  • Git: http://git-tool:8000/openapi.json"
     fi
 else
-    print_fail "No tools registered in OpenWebUI (database query returned 0 tools)"
-    print_warn "Tools must be manually imported via Settings → Tools"
+    print_fail "No Global Tool Servers configured in OpenWebUI"
+    print_warn "Global Tool Servers must be registered via Admin Settings → Tools"
 fi
 
 # Test 9: OpenWebUI Web Interface
