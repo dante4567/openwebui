@@ -445,6 +445,89 @@ def create_event(event: Event, calendar_name: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
 
 
+@app.delete("/events/{uid}")
+@retry_on_failure(max_retries=3, base_delay=1.0)
+def delete_event(uid: str, calendar_name: Optional[str] = None):
+    """
+    Delete a calendar event by UID
+
+    Args:
+        uid: Unique identifier of the event
+        calendar_name: Target calendar (default: search all calendars)
+    """
+    start_time = time.time()
+    logger.info("Deleting event", extra={"uid": uid, "calendar_name": calendar_name})
+
+    try:
+        client = get_caldav_client()
+        principal = client.principal()
+        calendars = principal.calendars()
+
+        if not calendars:
+            logger.error("No calendars found")
+            raise HTTPException(status_code=404, detail="No calendars found")
+
+        # Select calendar(s) to search
+        search_calendars = []
+        if calendar_name:
+            calendar = next((c for c in calendars if c.name == calendar_name), None)
+            if not calendar:
+                logger.error("Calendar not found", extra={"calendar_name": calendar_name})
+                raise HTTPException(status_code=404, detail=f"Calendar '{calendar_name}' not found")
+            search_calendars = [calendar]
+        else:
+            search_calendars = calendars
+
+        # Search for event by UID
+        event_found = False
+        for calendar in search_calendars:
+            try:
+                # Search for events in a wide date range
+                start = datetime.now() - timedelta(days=365)
+                end = datetime.now() + timedelta(days=365)
+                events = calendar.date_search(start=start, end=end)
+
+                for event in events:
+                    try:
+                        vcal = vobject.readOne(event.data)
+                        if hasattr(vcal.vevent, 'uid') and str(vcal.vevent.uid.value) == uid:
+                            # Found the event, delete it
+                            event.delete()
+                            event_found = True
+                            logger.info("Event deleted successfully", extra={
+                                "uid": uid,
+                                "calendar": calendar.name
+                            })
+                            latency = time.time() - start_time
+                            return {
+                                "status": "success",
+                                "message": "Event deleted",
+                                "uid": uid,
+                                "latency_ms": round(latency * 1000, 2)
+                            }
+                    except Exception as parse_error:
+                        logger.debug("Skipping event during delete search", extra={
+                            "error": str(parse_error)
+                        })
+                        continue
+            except Exception as calendar_error:
+                logger.warning("Error searching calendar", extra={
+                    "calendar": calendar.name,
+                    "error": str(calendar_error)
+                })
+                continue
+
+        if not event_found:
+            logger.error("Event not found", extra={"uid": uid})
+            raise HTTPException(status_code=404, detail=f"Event with UID '{uid}' not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to delete event", extra={"error": str(e), "uid": uid})
+        raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
+
+
 # ============================================================================
 # CONTACT OPERATIONS (CardDAV)
 # ============================================================================
