@@ -406,7 +406,7 @@ services:
       # ========================================
       # WEBUI_SECRET_KEY loaded from .env
       - WEBUI_AUTH=true
-      - ENABLE_SIGNUP=false  # Admin-only mode
+      - ENABLE_SIGNUP=true  # TEMPORARY: Enable for first admin account creation
       - ENABLE_LOGIN_FORM=true
       - CORS_ALLOW_ORIGIN=*
 
