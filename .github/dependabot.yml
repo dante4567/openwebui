@@ -1,0 +1,65 @@
+version: 2
+updates:
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps):"
+
+  # Python dependencies for todoist-tool
+  - package-ecosystem: "pip"
+    directory: "/todoist-tool"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "todoist-tool"
+    commit-message:
+      prefix: "chore(deps):"
+    # Group all minor and patch updates together
+    groups:
+      todoist-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Python dependencies for caldav-tool
+  - package-ecosystem: "pip"
+    directory: "/caldav-tool"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "caldav-tool"
+    commit-message:
+      prefix: "chore(deps):"
+    # Group all minor and patch updates together
+    groups:
+      caldav-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps):"

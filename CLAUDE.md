@@ -325,11 +325,49 @@ docker exec openwebui curl http://caldav-tool:8000/
 8. OpenWebUI web interface (port 8080 accessibility)
 9. Model availability & pricing (API keys, budget-friendly models, outdated model detection, LiteLLM status)
 
-**CI/CD recommendations**: See `CI-CD-RECOMMENDATIONS.md`
-- GitHub Actions workflows for automated testing
-- Configuration drift detection
-- Security scanning
-- Dependency updates
+**CI/CD (Automated via GitHub Actions):**
+
+✅ **Unit Tests** (`.github/workflows/unit-tests.yml`)
+- Runs on every push/PR to main or develop
+- Tests both todoist-tool and caldav-tool independently
+- Coverage reporting to Codecov
+- Fails if tests fail or coverage drops
+- Typical run time: ~2-3 minutes
+
+✅ **Integration Tests** (`.github/workflows/integration-tests.yml`)
+- Runs on push/PR to main, or manually via workflow_dispatch
+- Tests:
+  - Docker image builds
+  - Container health checks
+  - Configuration validation (docker-compose.yml syntax)
+  - Security checks (no hardcoded API keys)
+  - Documentation completeness
+  - Markdown link validation
+- Typical run time: ~5-10 minutes
+
+✅ **Dependency Updates** (`.github/dependabot.yml`)
+- Weekly automated PRs for dependency updates
+- Tracks: GitHub Actions, Python packages (pip), Docker base images
+- Groups minor/patch updates together
+- Auto-labels PRs by component (todoist-tool, caldav-tool, github-actions)
+
+**CI Status:**
+- All workflows use latest GitHub Actions versions (v4-v5)
+- Python 3.10 for consistency with production containers
+- Pip caching for faster builds
+- Parallel test execution for speed
+
+**Local CI testing:**
+```bash
+# Run tests locally (same as CI)
+./run-tests.sh
+
+# Validate docker-compose.yml
+docker-compose config
+
+# Check for secrets in code
+grep -r "sk-proj-" --exclude-dir=.git .
+```
 
 **LiteLLM routing (CRITICAL)**: All traffic MUST go through LiteLLM proxy
 - Current setup: ALL API calls route through `http://litellm:4000` (verified Oct 2025)

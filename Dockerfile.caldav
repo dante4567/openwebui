@@ -16,9 +16,13 @@ RUN adduser \
 
 # Install dependencies
 WORKDIR /app
-COPY caldav-tool /app/
 
-RUN pip install --no-cache-dir fastapi uvicorn caldav vobject requests python-dotenv
+# Copy requirements first for better caching
+COPY caldav-tool/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY caldav-tool /app/
 
 # Switch to non-privileged user
 USER appuser

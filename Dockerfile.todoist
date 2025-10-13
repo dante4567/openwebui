@@ -16,9 +16,13 @@ RUN adduser \
 
 # Install dependencies
 WORKDIR /app
-COPY todoist-tool /app/
 
-RUN pip install --no-cache-dir fastapi uvicorn requests python-dotenv
+# Copy requirements first for better caching
+COPY todoist-tool/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY todoist-tool /app/
 
 # Switch to non-privileged user
 USER appuser

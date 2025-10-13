@@ -1,0 +1,111 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'todoist-tool/**'
+      - 'caldav-tool/**'
+      - 'run-tests.sh'
+      - '.github/workflows/unit-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'todoist-tool/**'
+      - 'caldav-tool/**'
+      - 'run-tests.sh'
+      - '.github/workflows/unit-tests.yml'
+
+jobs:
+  test-todoist-tool:
+    name: Test Todoist Tool
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: todoist-tool
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-test.txt
+        pip install fastapi uvicorn requests python-dotenv
+
+    - name: Run tests
+      working-directory: todoist-tool
+      env:
+        TODOIST_API_KEY: test-key
+      run: |
+        pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: todoist-tool/coverage.xml
+        flags: todoist-tool
+        name: todoist-tool-coverage
+      continue-on-error: true
+
+  test-caldav-tool:
+    name: Test CalDAV Tool
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: caldav-tool
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-test.txt
+        pip install fastapi uvicorn caldav vobject requests python-dotenv
+
+    - name: Run tests
+      working-directory: caldav-tool
+      env:
+        CALDAV_URL: https://caldav.example.com
+        CALDAV_USERNAME: testuser
+        CALDAV_PASSWORD: testpass
+      run: |
+        pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: caldav-tool/coverage.xml
+        flags: caldav-tool
+        name: caldav-tool-coverage
+      continue-on-error: true
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-todoist-tool, test-caldav-tool]
+    if: always()
+
+    steps:
+    - name: Check test results
+      run: |
+        if [[ "${{ needs.test-todoist-tool.result }}" == "success" ]] && [[ "${{ needs.test-caldav-tool.result }}" == "success" ]]; then
+          echo "✅ All tests passed!"
+          exit 0
+        else
+          echo "❌ Some tests failed"
+          echo "Todoist: ${{ needs.test-todoist-tool.result }}"
+          echo "CalDAV: ${{ needs.test-caldav-tool.result }}"
+          exit 1
+        fi
