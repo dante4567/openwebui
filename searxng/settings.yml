@@ -1,72 +1,24 @@
-# SearXNG Configuration for OpenWebUI Integration
-# This is a minimal configuration optimized for OpenWebUI RAG web search
+# Minimal SearXNG Configuration for OpenWebUI
+# Based on https://docs.searxng.org/admin/settings/settings.html
+
+use_default_settings: true
 
 general:
-  debug: false
   instance_name: "OpenWebUI Search"
-
-search:
-  safe_search: 0  # 0=off, 1=moderate, 2=strict
-  autocomplete: ""
-  default_lang: "en"
-  formats:
-    - html
-    - json  # Required for OpenWebUI integration
+  enable_metrics: false
 
 server:
-  secret_key: "change_this_secret_key_in_production"  # Generate with: openssl rand -hex 32
-  limiter: false  # Disable rate limiting for localhost
+  secret_key: "c9b92c6e588b92a9919544a5858c28a315187087c784e73993a17210ad3805ee"
+  limiter: false
   image_proxy: true
-  method: "GET"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
 
 ui:
-  static_use_hash: true
   default_theme: simple
   query_in_title: false
-  infinite_scroll: false
-
-# Enable popular search engines
-# Remove engines you don't want or add more from SearXNG docs
-engines:
-  - name: google
-    engine: google
-    shortcut: g
-
-  - name: duckduckgo
-    engine: duckduckgo
-    shortcut: ddg
-
-  - name: bing
-    engine: bing
-    shortcut: b
-
-  - name: wikipedia
-    engine: wikipedia
-    shortcut: wp
-
-  - name: github
-    engine: github
-    shortcut: gh
-
-  - name: stackoverflow
-    engine: stackoverflow
-    shortcut: so
-
-  - name: arxiv
-    engine: arxiv
-    shortcut: ar
-
-  - name: reddit
-    engine: reddit
-    shortcut: re
-
-  - name: youtube
-    engine: youtube_noapi
-    shortcut: yt
-    disabled: true  # Enable if you want video results
-
-enabled_plugins: []
-
-doi_resolvers: {}
-
-default_doi_resolver: 'oadoi.org'
