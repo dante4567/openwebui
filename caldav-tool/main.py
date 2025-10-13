@@ -17,6 +17,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 import time
+from functools import wraps
 
 # Configure structured logging
 logging.basicConfig(
@@ -25,6 +26,70 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger("caldav-tool")
+
+
+def retry_on_failure(max_retries=3, base_delay=1.0):
+    """
+    Retry decorator with exponential backoff for transient failures
+
+    Args:
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds, doubles with each retry (default: 1.0)
+
+    Retries on:
+        - Network errors (requests.exceptions.RequestException, caldav exceptions)
+        - Server errors (status code >= 500)
+
+    Does NOT retry on:
+        - Client errors (status code 4xx) - these won't succeed on retry
+        - Successful responses (2xx, 3xx)
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries <= max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except (requests.exceptions.RequestException, caldav.lib.error.DAVError) as e:
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"Max retries ({max_retries}) exceeded for {func.__name__}", extra={
+                            "error": str(e),
+                            "retries": retries - 1
+                        })
+                        raise
+
+                    delay = base_delay * (2 ** (retries - 1))
+                    logger.warning(f"Retrying {func.__name__} after {delay}s", extra={
+                        "attempt": retries,
+                        "max_retries": max_retries,
+                        "error": str(e)
+                    })
+                    time.sleep(delay)
+                except HTTPException as e:
+                    # Don't retry on client errors (4xx) or successful responses
+                    if e.status_code < 500:
+                        raise
+
+                    # Retry on server errors (5xx)
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"Max retries ({max_retries}) exceeded for {func.__name__}", extra={
+                            "status_code": e.status_code,
+                            "retries": retries - 1
+                        })
+                        raise
+
+                    delay = base_delay * (2 ** (retries - 1))
+                    logger.warning(f"Retrying {func.__name__} after {delay}s", extra={
+                        "attempt": retries,
+                        "max_retries": max_retries,
+                        "status_code": e.status_code
+                    })
+                    time.sleep(delay)
+        return wrapper
+    return decorator
 
 app = FastAPI(
     title="CalDAV/CardDAV Tool",
@@ -105,6 +170,7 @@ def root():
 # ============================================================================
 
 @app.get("/calendars")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def list_calendars():
     """List all available calendars"""
     start_time = time.time()
@@ -137,6 +203,7 @@ def list_calendars():
 
 
 @app.get("/events")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def list_events(
     calendar_name: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -217,6 +284,7 @@ def list_events(
 
 
 @app.post("/events")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def create_event(event: Event, calendar_name: Optional[str] = None):
     """
     Create a new calendar event
@@ -291,6 +359,7 @@ def create_event(event: Event, calendar_name: Optional[str] = None):
 # ============================================================================
 
 @app.get("/addressbooks")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def list_addressbooks():
     """List all available addressbooks"""
     start_time = time.time()
@@ -363,6 +432,7 @@ def list_addressbooks():
 
 
 @app.get("/contacts")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def list_contacts(addressbook_name: Optional[str] = "contacts"):
     """
     List contacts from addressbook
@@ -447,6 +517,7 @@ def list_contacts(addressbook_name: Optional[str] = "contacts"):
 
 
 @app.post("/contacts")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def create_contact(contact: Contact, addressbook_name: Optional[str] = "contacts"):
     """
     Create a new contact

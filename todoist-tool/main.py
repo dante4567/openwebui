@@ -12,6 +12,7 @@ import logging
 from typing import Optional, List
 from datetime import datetime
 import time
+from functools import wraps
 
 # Configure structured logging
 logging.basicConfig(
@@ -20,6 +21,70 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger("todoist-tool")
+
+
+def retry_on_failure(max_retries=3, base_delay=1.0):
+    """
+    Retry decorator with exponential backoff for transient failures
+
+    Args:
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds, doubles with each retry (default: 1.0)
+
+    Retries on:
+        - Network errors (requests.exceptions.RequestException)
+        - Server errors (status code >= 500)
+
+    Does NOT retry on:
+        - Client errors (status code 4xx) - these won't succeed on retry
+        - Successful responses (2xx, 3xx)
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries <= max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except requests.exceptions.RequestException as e:
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"Max retries ({max_retries}) exceeded for {func.__name__}", extra={
+                            "error": str(e),
+                            "retries": retries - 1
+                        })
+                        raise
+
+                    delay = base_delay * (2 ** (retries - 1))
+                    logger.warning(f"Retrying {func.__name__} after {delay}s", extra={
+                        "attempt": retries,
+                        "max_retries": max_retries,
+                        "error": str(e)
+                    })
+                    time.sleep(delay)
+                except HTTPException as e:
+                    # Don't retry on client errors (4xx) or successful responses
+                    if e.status_code < 500:
+                        raise
+
+                    # Retry on server errors (5xx)
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"Max retries ({max_retries}) exceeded for {func.__name__}", extra={
+                            "status_code": e.status_code,
+                            "retries": retries - 1
+                        })
+                        raise
+
+                    delay = base_delay * (2 ** (retries - 1))
+                    logger.warning(f"Retrying {func.__name__} after {delay}s", extra={
+                        "attempt": retries,
+                        "max_retries": max_retries,
+                        "status_code": e.status_code
+                    })
+                    time.sleep(delay)
+        return wrapper
+    return decorator
 
 app = FastAPI(
     title="Todoist Tool",
@@ -66,6 +131,7 @@ def root():
 
 
 @app.get("/tasks")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def list_tasks(project_id: Optional[str] = None, filter: Optional[str] = None):
     """
     List all tasks
@@ -108,6 +174,7 @@ def list_tasks(project_id: Optional[str] = None, filter: Optional[str] = None):
 
 
 @app.post("/tasks")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def create_task(task: Task):
     """
     Create a new task
@@ -151,6 +218,7 @@ def create_task(task: Task):
 
 
 @app.get("/tasks/{task_id}")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def get_task(task_id: str):
     """Get a specific task by ID"""
     start_time = time.time()
@@ -180,6 +248,7 @@ def get_task(task_id: str):
 
 
 @app.post("/tasks/{task_id}/close")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def complete_task(task_id: str):
     """Mark a task as completed"""
     start_time = time.time()
@@ -209,6 +278,7 @@ def complete_task(task_id: str):
 
 
 @app.post("/tasks/{task_id}/reopen")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def reopen_task(task_id: str):
     """Reopen a completed task"""
     start_time = time.time()
@@ -238,6 +308,7 @@ def reopen_task(task_id: str):
 
 
 @app.post("/tasks/{task_id}")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def update_task(task_id: str, updates: TaskUpdate):
     """Update an existing task"""
     start_time = time.time()
@@ -272,6 +343,7 @@ def update_task(task_id: str, updates: TaskUpdate):
 
 
 @app.delete("/tasks/{task_id}")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def delete_task(task_id: str):
     """Delete a task"""
     start_time = time.time()
@@ -301,6 +373,7 @@ def delete_task(task_id: str):
 
 
 @app.get("/projects")
+@retry_on_failure(max_retries=3, base_delay=1.0)
 def list_projects():
     """List all projects"""
     start_time = time.time()
