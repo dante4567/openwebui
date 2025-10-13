@@ -1,5 +1,5 @@
 # Filesystem Tool for OpenWebUI
-FROM python:3.10.12-slim
+FROM python:3.14.0-slim
 
 # Create non-privileged user
 RUN adduser \

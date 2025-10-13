@@ -1,5 +1,5 @@
 # Custom Dockerfile for OpenWebUI CalDAV/CardDAV Tool
-FROM python:3.10.12-slim
+FROM python:3.14.0-slim
 
 # Install system dependencies (curl for healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
