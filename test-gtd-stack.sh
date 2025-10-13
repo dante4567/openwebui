@@ -287,8 +287,74 @@ else
     fi
 fi
 
-# Test 8: OpenWebUI Web Interface
-print_header "Test 8: OpenWebUI Web Interface"
+# Test 8: OpenWebUI Tool Registration
+print_header "Test 8: OpenWebUI Tool Registration (via Database)"
+
+print_test "Querying OpenWebUI database for registered tools..."
+
+# Query the database directly using Python (always available in container)
+TOOLS_DB_RESULT=$(docker exec openwebui python3 -c "
+import sqlite3
+import json
+try:
+    conn = sqlite3.connect('/app/backend/data/webui.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, name, meta FROM tool')
+    tools = cursor.fetchall()
+    result = [{'id': t[0], 'name': t[1]} for t in tools]
+    print(json.dumps(result))
+except Exception as e:
+    print(json.dumps({'error': str(e)}))
+" 2>/dev/null)
+
+TOOL_COUNT=$(echo "$TOOLS_DB_RESULT" | jq '. | length' 2>/dev/null || echo "0")
+
+if [ "$TOOL_COUNT" -gt 0 ]; then
+    print_pass "Found $TOOL_COUNT registered tools in database"
+
+    # Check for GTD tools (caldav, todoist, filesystem, git)
+    print_test "Verifying GTD tools are registered..."
+
+    CALDAV_FOUND=$(echo "$TOOLS_DB_RESULT" | jq -r '.[] | select(.name | test("caldav|calendar"; "i")) | .name' 2>/dev/null | head -1)
+    TODOIST_FOUND=$(echo "$TOOLS_DB_RESULT" | jq -r '.[] | select(.name | test("todoist|task"; "i")) | .name' 2>/dev/null | head -1)
+    FILESYSTEM_FOUND=$(echo "$TOOLS_DB_RESULT" | jq -r '.[] | select(.name | test("filesystem|file"; "i")) | .name' 2>/dev/null | head -1)
+    GIT_FOUND=$(echo "$TOOLS_DB_RESULT" | jq -r '.[] | select(.name | test("git"; "i")) | .name' 2>/dev/null | head -1)
+
+    GTD_TOOLS_FOUND=0
+    [ -n "$CALDAV_FOUND" ] && GTD_TOOLS_FOUND=$((GTD_TOOLS_FOUND + 1))
+    [ -n "$TODOIST_FOUND" ] && GTD_TOOLS_FOUND=$((GTD_TOOLS_FOUND + 1))
+    [ -n "$FILESYSTEM_FOUND" ] && GTD_TOOLS_FOUND=$((GTD_TOOLS_FOUND + 1))
+    [ -n "$GIT_FOUND" ] && GTD_TOOLS_FOUND=$((GTD_TOOLS_FOUND + 1))
+
+    if [ $GTD_TOOLS_FOUND -eq 4 ]; then
+        print_pass "All 4 GTD tools registered (CalDAV, Todoist, Filesystem, Git)"
+    elif [ $GTD_TOOLS_FOUND -gt 0 ]; then
+        print_warn "Only $GTD_TOOLS_FOUND/4 GTD tools registered:"
+        [ -n "$CALDAV_FOUND" ] && echo "    ✓ $CALDAV_FOUND"
+        [ -n "$TODOIST_FOUND" ] && echo "    ✓ $TODOIST_FOUND"
+        [ -n "$FILESYSTEM_FOUND" ] && echo "    ✓ $FILESYSTEM_FOUND"
+        [ -n "$GIT_FOUND" ] && echo "    ✓ $GIT_FOUND"
+        [ -z "$CALDAV_FOUND" ] && echo "    ✗ CalDAV tool missing"
+        [ -z "$TODOIST_FOUND" ] && echo "    ✗ Todoist tool missing"
+        [ -z "$FILESYSTEM_FOUND" ] && echo "    ✗ Filesystem tool missing"
+        [ -z "$GIT_FOUND" ] && echo "    ✗ Git tool missing"
+        print_warn "Add missing tools via: Settings → Tools → Import Tool"
+    else
+        print_fail "No GTD tools registered in OpenWebUI database"
+        print_warn "Add tools via: Settings → Tools → Import Tool"
+        print_warn "URLs:"
+        print_warn "  • CalDAV: http://caldav-tool:8000/openapi.json"
+        print_warn "  • Todoist: http://todoist-tool:8000/openapi.json"
+        print_warn "  • Filesystem: http://filesystem-tool:8000/openapi.json"
+        print_warn "  • Git: http://git-tool:8000/openapi.json"
+    fi
+else
+    print_fail "No tools registered in OpenWebUI (database query returned 0 tools)"
+    print_warn "Tools must be manually imported via Settings → Tools"
+fi
+
+# Test 9: OpenWebUI Web Interface
+print_header "Test 9: OpenWebUI Web Interface"
 
 print_test "Checking OpenWebUI web interface..."
 WEB_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ 2>/dev/null || echo "000")
@@ -298,8 +364,8 @@ else
     print_fail "OpenWebUI web interface not responding (HTTP $WEB_RESPONSE)"
 fi
 
-# Test 9: Model Availability & Pricing
-print_header "Test 9: Model Availability & Pricing"
+# Test 10: Model Availability & Pricing
+print_header "Test 10: Model Availability & Pricing"
 
 print_test "Checking expected models are configured..."
 

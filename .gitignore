@@ -61,3 +61,4 @@ prompts-import.json
 htmlcov/
 .coverage
 *.cover
+.test-admin-creds
