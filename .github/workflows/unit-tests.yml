@@ -46,7 +46,7 @@ jobs:
         pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         file: todoist-tool/coverage.xml
         flags: todoist-tool
@@ -84,7 +84,7 @@ jobs:
         pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         file: caldav-tool/coverage.xml
         flags: caldav-tool
