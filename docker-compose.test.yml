@@ -1,0 +1,594 @@
+services:
+  # ===================================================================
+  # OLLAMA - Local LLM Server (Fallback + Embeddings) - DISABLED
+  # ===================================================================
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: openwebui-test-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   restart: unless-stopped
+  #   networks:
+  #     - openwebui-test-net
+  #   # Auto-pull small models on first startup
+  #   healthcheck:
+  #     test: ["CMD", "ollama", "list"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   # Note: Models will be pulled via init container or manually
+  #   # Run after stack is up: docker exec openwebui-ollama ollama pull llama3.2:1b
+
+  # ===================================================================
+  # CHROMADB - Vector Database for RAG
+  # ===================================================================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: openwebui-test-chromadb
+    ports:
+      - "3001:8000"  # External: 3000, Internal: 8000
+    volumes:
+      - chromadb-test-data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+    # healthcheck disabled - ChromaDB API v1 heartbeat endpoint deprecated
+
+  # ===================================================================
+  # TOOL SERVERS - OpenAPI Tool Servers for Extended LLM Capabilities
+  # ===================================================================
+
+  # Weather Tool - Real-time weather forecasts - DISABLED (not needed for GTD)
+  # weather-tool:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.weather
+  #   container_name: openwebui-test-weather
+  #   ports:
+  #     - "8005:8000"
+  #   restart: unless-stopped
+  #   networks:
+  #     - openwebui-test-net
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   # No API key required - uses free Open-Meteo API
+  #   # OpenWebUI URL: http://weather-tool:8000
+
+  # Filesystem Tool - Read/write files, search, directory operations
+  filesystem-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.filesystem
+    container_name: openwebui-test-filesystem
+    ports:
+      - "9006:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    volumes:
+      # Mount AI workspace directory for file operations
+      - ~/ai-workspace:/workspace
+    environment:
+      - WORKSPACE_DIR=/workspace
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # OpenWebUI URL: http://filesystem-tool:8000
+    # ⚠️  SECURITY: LLM has write access to ~/ai-workspace - keep backups!
+
+  # Git Tool - Repository operations (clone, commit, push, pull, status)
+  git-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.git
+    container_name: openwebui-test-git
+    ports:
+      - "9003:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    volumes:
+      # Share workspace with filesystem tool for git operations
+      - ~/ai-workspace:/workspace
+    environment:
+      - WORKSPACE_DIR=/workspace
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # OpenWebUI URL: http://git-tool:8000
+    # ⚠️  SECURITY: LLM has write access to ~/ai-workspace - keep backups!
+
+  # Memory Tool - Knowledge Graph for persistent LLM memory - DISABLED (not needed for GTD)
+  # memory-tool:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.memory
+  #   container_name: openwebui-test-memory
+  #   ports:
+  #     - "8004:8000"
+  #   restart: unless-stopped
+  #   networks:
+  #     - openwebui-test-net
+  #   volumes:
+  #     # Persistent storage for knowledge graph
+  #     - memory-test-data:/data
+  #   environment:
+  #     - MEMORY_FILE_PATH=/data/memory.json
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   # OpenWebUI URL: http://memory-tool:8000
+  #   # Stores entities, relations, and observations in a knowledge graph
+
+  # ===================================================================
+  # GTD TOOL SERVERS - Task Management, Calendar, Contacts
+  # ===================================================================
+
+  # Todoist Tool - Task management via Todoist API
+  todoist-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.todoist
+    container_name: openwebui-test-todoist
+    ports:
+      - "9007:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # OpenWebUI URL: http://todoist-tool:8000
+    # Requires: TODOIST_API_KEY in .env
+
+  # CalDAV/CardDAV Tool - Calendar and contact management
+  caldav-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.caldav
+    container_name: openwebui-test-caldav
+    ports:
+      - "9008:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # OpenWebUI URL: http://caldav-tool:8000
+    # Requires: CALDAV_URL, CALDAV_USERNAME, CALDAV_PASSWORD in .env
+    # Optional: CARDDAV_URL, CARDDAV_USERNAME, CARDDAV_PASSWORD (defaults to CalDAV creds)
+
+  # ===================================================================
+  # EXTENDED SERVICES - DISABLED (not needed for GTD use-case)
+  # ===================================================================
+
+  # Pipelines - OpenWebUI's native extension framework - DISABLED
+  # pipelines:
+  #   image: ghcr.io/open-webui/pipelines:main
+  #   container_name: openwebui-test-pipelines
+  #   ports:
+  #     - "9099:9099"
+  #   volumes:
+  #     - pipelines-test-data:/app/pipelines
+  #   environment:
+  #     - PIPELINES_URLS=
+  #   restart: unless-stopped
+  #   networks:
+  #     - openwebui-test-net
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9099/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   # More powerful than tool servers - can modify LLM requests/responses
+  #   # Add custom processing before/after LLM calls
+  #   # OpenWebUI URL: http://pipelines:9099
+
+  # SearXNG - Self-hosted metasearch engine
+  searxng:
+    image: searxng/searxng:latest
+    container_name: openwebui-test-searxng
+    ports:
+      - "9081:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8081/
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Better than DuckDuckGo API - no rate limits, aggregates multiple search engines
+    # Requires settings.yml configuration (see searxng/ directory)
+    # OpenWebUI setting: RAG_WEB_SEARCH_ENGINE=searxng, SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
+
+  # Apache Tika
+  tika:
+    image: apache/tika:latest-full
+    container_name: openwebui-test-tika
+    ports:
+      - "9999:9998"
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9998/tika || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Handles scanned PDFs (OCR), tables, 100+ document formats
+    # If you want local parsing instead of cloud, uncomment this and change CONTENT_EXTRACTION_ENGINE=tika
+
+  # Docling - Modern document parsing (better for tables/formulas)
+  # Alternative to Tika - choose one based on your needs
+  # Uncomment to enable (comment out Tika if using this)
+  # docling:
+  #   image: ds4sd/docling:latest
+  #   container_name: openwebui-test-docling
+  #   ports:
+  #     - "5001:5001"
+  #   restart: unless-stopped
+  #   networks:
+  #     - openwebui-test-net
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   # Better for scientific papers, tables, formulas (GPU-accelerated OCR)
+  #   # OpenWebUI setting: DOCLING_SERVER_URL=http://docling:5001
+
+  # LiteLLM Proxy - Unified gateway
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: openwebui-test-litellm
+    ports:
+      - "4001:4000"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml
+    env_file:
+      - .env  # Load API keys from .env (MUST be before environment section)
+    environment:
+      - LITELLM_MASTER_KEY=sk-1234
+      - STORE_MODEL_IN_DB=False  # Disabled - requires PostgreSQL
+    command: --config /app/config.yaml --port 4000 --detailed_debug
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; req = urllib.request.Request(\"http://localhost:4000/health\", headers={\"Authorization\": \"Bearer sk-1234\"}); urllib.request.urlopen(req).read()' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Features: caching, cost tracking, rate limiting, fallback logic
+    # Point OpenWebUI to: http://litellm:4000/v1 (OpenAI-compatible)
+
+  # Redis - Caching
+  redis:
+    image: redis:7-alpine
+    container_name: openwebui-test-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-test-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Used by LiteLLM for response caching
+
+  # ===================================================================
+  # OPENWEBUI - Main Application
+  # ===================================================================
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: openwebui-test
+    ports:
+      - "9080:8080"
+    volumes:
+      - openwebui-test-data:/app/backend/data
+    env_file:
+      - .env  # API keys and secrets
+    environment:
+      # ========================================
+      # CORE APPLICATION
+      # ========================================
+      - WEBUI_NAME=Open WebUI
+      - WEBUI_URL=http://localhost:8080
+      - PORT=8080
+      - DEFAULT_LOCALE=en
+      - ENV=production
+
+      # ========================================
+      # SECURITY & AUTH
+      # ========================================
+      # WEBUI_SECRET_KEY loaded from .env
+      - WEBUI_AUTH=true
+      - ENABLE_SIGNUP=true  # TEMPORARY: Enable for first admin account creation
+      - ENABLE_LOGIN_FORM=true
+      - CORS_ALLOW_ORIGIN=*
+
+      # ========================================
+      # LLM PROVIDERS (Cloud Primary, Local Fallback)
+      # ========================================
+
+      # Cloud APIs (Primary - Fast, High Quality)
+      - ENABLE_OPENAI_API=true
+      - OPENAI_API_BASE_URL=http://litellm:4000
+      # OPENAI_API_KEY in .env
+
+      # Groq (Very fast, free tier)
+      - ENABLE_GROQ_API=true
+      - GROQ_API_BASE_URL=http://litellm:4000
+      # GROQ_API_KEY in .env
+
+      # Anthropic Claude (Excellent for writing/analysis)
+      - ENABLE_ANTHROPIC_API=true
+      - ANTHROPIC_API_BASE_URL=http://litellm:4000
+      # ANTHROPIC_API_KEY in .env
+
+      # Google Gemini
+      - ENABLE_GOOGLE_API=true
+      - GOOGLE_API_BASE_URL=http://litellm:4000
+      # GOOGLE_API_KEY in .env
+
+      # Local Ollama (Fallback + Embeddings) - DISABLED
+      - ENABLE_OLLAMA_API=false
+      # - OLLAMA_BASE_URL=http://ollama:11434  # Internal network
+
+      # ========================================
+      # VECTOR DATABASE (RAG) - ChromaDB
+      # ========================================
+      - VECTOR_DB=chroma
+      - CHROMA_HTTP_HOST=chromadb
+      - CHROMA_HTTP_PORT=8000
+
+      # ========================================
+      # RAG CONFIGURATION - OpenAI Embeddings + Unstructured.io
+      # ========================================
+      - RAG_EMBEDDING_ENGINE=openai
+      - RAG_EMBEDDING_MODEL=text-embedding-3-small
+      - RAG_TOP_K=5
+      - CHUNK_SIZE=1500
+      - CHUNK_OVERLAP=100
+      - PDF_EXTRACT_IMAGES=true
+      - CONTENT_EXTRACTION_ENGINE=tika
+      - TIKA_SERVER_URL=http://tika:9998
+      - FILE_SIZE_LIMIT=104857600  # 100MB
+
+      # ========================================
+      # WEB SEARCH (SearXNG)
+      # ========================================
+      - ENABLE_RAG_WEB_SEARCH=true
+      - RAG_WEB_SEARCH_ENGINE=searxng
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
+      - ENABLE_SEARCH_QUERY=true
+
+      # ========================================
+      # AUDIO (Whisper STT + TTS)
+      # ========================================
+      - ENABLE_AUDIO_TRANSCRIPTION=true
+
+      # Option 1: Use OpenAI Whisper API (cloud - high quality)
+      - AUDIO_STT_ENGINE=openai
+      - AUDIO_STT_MODEL=whisper-1
+      # OPENAI_API_KEY in .env
+
+      # Option 2: Use local Whisper (if you set up separate container)
+      # - AUDIO_STT_ENGINE=whisper
+      # - WHISPER_API_BASE_URL=http://whisper:9000
+
+      # Text-to-Speech
+      - AUDIO_TTS_ENGINE=openai
+      - AUDIO_TTS_MODEL=tts-1
+      - AUDIO_TTS_VOICE=alloy  # Options: alloy, echo, fable, onyx, nova, shimmer
+
+      # ========================================
+      # CODE EXECUTION & FUNCTIONS
+      # ========================================
+      - ENABLE_CODE_EXECUTION=true
+      - CODE_EXECUTION_ENGINE=pyodide  # Safe sandboxed Python in browser
+      # For Docker-based code execution (more powerful but needs Docker socket):
+      # - CODE_EXECUTION_ENGINE=docker
+      # - CODE_EXECUTION_DOCKER_IMAGE=python:3.11-slim
+
+      # Enable function calling (tools/agentic capabilities)
+      - ENABLE_FUNCTION_CALLING=true
+
+      # ========================================
+      # MEMORY & CONTEXT - Built-in (SQLite storage)
+      # ========================================
+      - ENABLE_MEMORY=true
+      # - MEMORY_BACKEND=chroma  # Optional: Store in ChromaDB instead
+
+      # ========================================
+      # PIPELINES (Optional - for custom LLM processing)
+      # ========================================
+      # Uncomment to enable OpenWebUI Pipelines
+      # - ENABLE_PIPELINES=true
+      # - PIPELINES_URLS=http://pipelines:9099
+
+      # ========================================
+      # IMAGE GENERATION (Optional)
+      # ========================================
+      - ENABLE_IMAGE_GENERATION=false
+      # To enable with OpenAI DALL-E:
+      # - ENABLE_IMAGE_GENERATION=true
+      # - IMAGE_GENERATION_ENGINE=openai
+      # OPENAI_API_KEY in .env
+
+      # ========================================
+      # INTEGRATIONS & FEATURES
+      # ========================================
+      - ENABLE_COMMUNITY_SHARING=false
+      - ENABLE_MESSAGE_RATING=true
+      - ENABLE_TAGS=true
+      - ENABLE_AUTOCOMPLETE_GENERATION=true
+      - ENABLE_ADMIN_EXPORT=true
+      - ENABLE_ADMIN_CHAT_ACCESS=true
+      - OFFLINE_MODE=false
+
+      # ========================================
+      # PERFORMANCE & BUDGET CONTROLS
+      # ========================================
+      - TASK_MODEL=gpt-4o-mini  # Cloud model for background tasks
+      - TASK_MODEL_EXTERNAL=
+      - DEFAULT_MODELS=gpt-4o-mini  # Force cheap model as default
+
+      # ========================================
+      # LOGGING
+      # ========================================
+      - LOG_LEVEL=INFO
+      - SHOW_ADMIN_DETAILS=true
+
+    restart: unless-stopped
+    networks:
+      - openwebui-test-net
+    depends_on:
+      chromadb:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ===================================================================
+# VOLUMES
+# ===================================================================
+volumes:
+  chromadb-test-data:
+    driver: local
+  openwebui-test-data:
+    driver: local
+  filesystem-test-workspace:
+    driver: local
+    # Shared workspace for filesystem and git tools
+  memory-test-data:
+    driver: local
+    # Persistent storage for knowledge graph memory
+  pipelines-test-data:
+    driver: local
+    # Custom pipelines and extensions
+  redis-test-data:
+    driver: local
+    # Redis persistence for LiteLLM caching
+  litellm-test-data:
+    driver: local
+    # LiteLLM SQLite database for cost tracking and analytics
+
+# ===================================================================
+# NETWORKS
+# ===================================================================
+networks:
+  openwebui-test-net:
+    driver: bridge

@@ -319,22 +319,36 @@ def create_event(event: Event, calendar_name: Optional[str] = None):
         else:
             calendar = calendars[0]
 
-        # Create vCalendar object
+        # Create vCalendar object with required fields
         cal = vobject.iCalendar()
+
+        # Add required VERSION and PRODID
+        if not hasattr(cal, 'version'):
+            cal.add('version')
+            cal.version.value = '2.0'
+        if not hasattr(cal, 'prodid'):
+            cal.add('prodid')
+            cal.prodid.value = '-//OpenWebUI//CalDAV Tool//EN'
+
+        # Add event
         cal.add('vevent')
         cal.vevent.add('summary').value = event.summary
         cal.vevent.add('dtstart').value = datetime.fromisoformat(event.start)
         cal.vevent.add('dtend').value = datetime.fromisoformat(event.end)
 
-        if event.description:
-            cal.vevent.add('description').value = event.description
-        if event.location:
-            cal.vevent.add('location').value = event.location
+        # Add DTSTAMP (required by RFC 5545)
+        cal.vevent.add('dtstamp').value = datetime.now()
 
         # Generate UID
         import uuid
         uid = str(uuid.uuid4())
         cal.vevent.add('uid').value = uid
+
+        # Optional fields
+        if event.description:
+            cal.vevent.add('description').value = event.description
+        if event.location:
+            cal.vevent.add('location').value = event.location
 
         # Save to calendar
         calendar.save_event(cal.serialize())
@@ -441,6 +455,11 @@ def list_contacts(addressbook_name: Optional[str] = "contacts"):
         addressbook_name: Specific addressbook (default: "contacts")
     """
     start_time = time.time()
+
+    # Handle None case - default to "contacts" addressbook
+    if addressbook_name is None or addressbook_name == "None":
+        addressbook_name = "contacts"
+
     logger.info("Fetching contacts", extra={"addressbook_name": addressbook_name})
 
     try:
@@ -527,6 +546,11 @@ def create_contact(contact: Contact, addressbook_name: Optional[str] = "contacts
         addressbook_name: Target addressbook (default: "contacts")
     """
     start_time = time.time()
+
+    # Handle None case - default to "contacts" addressbook
+    if addressbook_name is None or addressbook_name == "None":
+        addressbook_name = "contacts"
+
     logger.info("Creating contact", extra={
         "full_name": contact.full_name,
         "addressbook_name": addressbook_name
