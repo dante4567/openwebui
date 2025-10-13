@@ -343,7 +343,13 @@ docker exec openwebui curl http://caldav-tool:8000/
     - Starts full OpenWebUI stack (OpenWebUI + all 4 tool servers)
     - Validates OpenWebUI API responds correctly
     - Verifies tool server connectivity from OpenWebUI container
-    - Inspects OpenWebUI database exists
+    - **Queries OpenWebUI database:**
+      - Lists all tables
+      - Checks config settings
+      - Verifies user accounts
+      - Lists tool/function registrations
+      - Shows model configuration
+      - Displays prompts
     - Checks logs for critical errors
   - Configuration validation (docker-compose.yml syntax)
   - Security checks (no hardcoded API keys)

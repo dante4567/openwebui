@@ -159,19 +159,44 @@ jobs:
         docker exec openwebui curl -s -f http://todoist-tool:8000/ > /dev/null && echo "✅ Todoist tool accessible" || echo "❌ Todoist tool NOT accessible"
         docker exec openwebui curl -s -f http://caldav-tool:8000/ > /dev/null && echo "✅ CalDAV tool accessible" || echo "❌ CalDAV tool NOT accessible"
 
-    - name: Export OpenWebUI configuration (if possible)
+    - name: Query OpenWebUI database configuration
       run: |
-        echo "Attempting to export OpenWebUI configuration..."
+        echo "Querying OpenWebUI database for configuration..."
 
-        # Try to export config via API or database
-        if docker exec openwebui test -f /app/backend/data/webui.db; then
-          echo "✅ OpenWebUI database exists at /app/backend/data/webui.db"
-
-          # Show basic database info
-          docker exec openwebui sqlite3 /app/backend/data/webui.db ".tables" 2>/dev/null || echo "   (SQLite tools not available in container)"
-        else
+        if ! docker exec openwebui test -f /app/backend/data/webui.db; then
           echo "⚠️  OpenWebUI database not found at expected location"
+          exit 0
         fi
+
+        echo "✅ OpenWebUI database exists at /app/backend/data/webui.db"
+        echo ""
+
+        # Install sqlite3 in container if needed
+        docker exec openwebui bash -c "apt-get update -qq && apt-get install -y -qq sqlite3 > /dev/null 2>&1" || echo "   (Could not install sqlite3)"
+
+        echo "=== Database Tables ==="
+        docker exec openwebui sqlite3 /app/backend/data/webui.db ".tables"
+        echo ""
+
+        echo "=== Configuration Settings ==="
+        docker exec openwebui sqlite3 /app/backend/data/webui.db "SELECT * FROM config LIMIT 10;" 2>/dev/null || echo "   (No config table found)"
+        echo ""
+
+        echo "=== User Accounts ==="
+        docker exec openwebui sqlite3 /app/backend/data/webui.db "SELECT id, name, email, role, created_at FROM user;" 2>/dev/null || echo "   (No users yet - expected for fresh install)"
+        echo ""
+
+        echo "=== Tool/Function Registrations ==="
+        docker exec openwebui sqlite3 /app/backend/data/webui.db "SELECT id, name, type FROM tool;" 2>/dev/null || echo "   (No tools table or no tools registered yet)"
+        docker exec openwebui sqlite3 /app/backend/data/webui.db "SELECT id, name, type FROM function;" 2>/dev/null || echo "   (No functions table)"
+        echo ""
+
+        echo "=== Model Configuration ==="
+        docker exec openwebui sqlite3 /app/backend/data/webui.db "SELECT * FROM model;" 2>/dev/null || echo "   (No models table)"
+        echo ""
+
+        echo "=== Prompts ==="
+        docker exec openwebui sqlite3 /app/backend/data/webui.db "SELECT id, command, title FROM prompt LIMIT 5;" 2>/dev/null || echo "   (No prompts table or no prompts configured)"
 
     - name: Check OpenWebUI logs for errors
       if: always()

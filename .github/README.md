@@ -38,7 +38,13 @@ This directory contains automated workflows for continuous integration and deliv
   - Validates OpenWebUI API is responding
   - Checks configuration endpoint accessibility
   - Verifies tool server connectivity from OpenWebUI container
-  - Inspects OpenWebUI database
+  - **Queries OpenWebUI database:**
+    - Lists all database tables
+    - Checks configuration settings
+    - Verifies user accounts
+    - Lists tool/function registrations
+    - Shows model configuration
+    - Displays configured prompts
   - Checks logs for critical errors
 
 - **Configuration validation:**
