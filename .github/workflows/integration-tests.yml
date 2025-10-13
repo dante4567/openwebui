@@ -223,17 +223,18 @@ jobs:
     - name: Check for secrets in code
       run: |
         # Check for accidentally committed API keys
-        if grep -r "sk-proj-" --exclude-dir=.git --exclude="*.md" .; then
+        # Exclude .github (contains these patterns in CI checks) and .md files
+        if grep -r "sk-proj-" --exclude-dir=.git --exclude-dir=.github --exclude="*.md" .; then
           echo "❌ Found potential OpenAI API key in code"
           exit 1
         fi
 
-        if grep -r "gsk_" --exclude-dir=.git --exclude="*.md" .; then
+        if grep -r "gsk_" --exclude-dir=.git --exclude-dir=.github --exclude="*.md" .; then
           echo "❌ Found potential Groq API key in code"
           exit 1
         fi
 
-        if grep -r "sk-ant-api" --exclude-dir=.git --exclude="*.md" .; then
+        if grep -r "sk-ant-api" --exclude-dir=.git --exclude-dir=.github --exclude="*.md" .; then
           echo "❌ Found potential Anthropic API key in code"
           exit 1
         fi
