@@ -207,10 +207,16 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 **LiteLLM caching benefits:**
 - Redis caching enabled - repeated queries cost $0
 - Fallback chains prevent expensive failures
-- Cost tracking: Check http://localhost:4000 (UI: admin/admin)
+- **Persistent cost tracking database** - SQLite at `/app/data/litellm.db`
+- **Admin UI enabled:** http://localhost:4000/ui (username: `admin`, password: `changeme123`)
 
 **Cost monitoring:**
-- LiteLLM dashboard: http://localhost:4000 (tracks all usage)
+- **LiteLLM Admin UI:** http://localhost:4000/ui (**PRIMARY** - real-time tracking)
+  - Per-model spending breakdown
+  - Token usage analytics
+  - Request/response logs
+  - Set budget alerts
+  - Cost trends (daily/weekly)
 - OpenAI: https://platform.openai.com/usage
 - Groq: https://console.groq.com/
 - Anthropic: https://console.anthropic.com/

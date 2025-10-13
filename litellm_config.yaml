@@ -154,12 +154,12 @@ litellm_settings:
 general_settings:
   master_key: sk-1234  # Must match LITELLM_MASTER_KEY in docker-compose
 
-  # Disable database - use in-memory only (no cost tracking persistence)
-  # database_url: null  # Commented out to prevent Prisma initialization
+  # Enable database for persistent cost tracking
+  database_url: "sqlite:////app/data/litellm.db"
 
-  # Disable admin UI (requires database)
-  # ui_username: admin
-  # ui_password: ${LITELLM_UI_PASSWORD:-admin}
+  # Enable admin UI for cost tracking dashboard
+  ui_username: admin
+  ui_password: changeme123  # Change this after first login!
 
   # Logging
   set_verbose: false
