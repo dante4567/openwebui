@@ -54,3 +54,10 @@ prompts-import.json
 
 # Allow specific JSON files
 !models-WHITELIST.json
+
+# Testing
+.venv-test/
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover

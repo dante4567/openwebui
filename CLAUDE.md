@@ -74,6 +74,13 @@ docker-compose build todoist-tool       # Rebuild after code changes
 docker-compose up -d todoist-tool       # Restart with new image
 curl http://localhost:8007/             # Test health endpoint
 
+# Unit tests for GTD tool servers
+./run-tests.sh                          # Run all tests (todoist + caldav)
+./run-tests.sh todoist                  # Run only todoist-tool tests
+./run-tests.sh caldav                   # Run only caldav-tool tests
+# Test reports: todoist-tool/htmlcov/index.html, caldav-tool/htmlcov/index.html
+# Coverage: todoist-tool: 87%, caldav-tool: 92%
+
 # Workspace access (git repo for AI)
 cd ~/ai-workspace                       # Direct access to workspace
 git log                                 # View AI commits
@@ -132,6 +139,40 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 - Uses Python `caldav` library
 - Requires: `CALDAV_URL`, `CALDAV_USERNAME`, `CALDAV_PASSWORD`
 - Optional: Separate CardDAV creds (defaults to CalDAV)
+
+## Testing
+
+**Unit tests for custom GTD tools:**
+- **Test coverage**: todoist-tool (87%), caldav-tool (92%)
+- **Test count**: 32 tests total (17 todoist, 15 caldav)
+- **Technologies**: pytest, pytest-cov, pytest-mock, httpx
+- **Location**: `todoist-tool/tests/`, `caldav-tool/tests/`
+
+**Running tests:**
+```bash
+./run-tests.sh              # Run all tests (both tools)
+./run-tests.sh todoist      # Run only todoist-tool tests
+./run-tests.sh caldav       # Run only caldav-tool tests
+```
+
+**What is tested:**
+- Health check endpoints
+- All CRUD operations (list, create, get, update, delete)
+- Error handling (network errors, timeouts, API errors)
+- Retry logic with exponential backoff
+- Request parameter validation
+- Response format validation
+
+**Test reports:**
+- HTML coverage reports: `{tool}/htmlcov/index.html`
+- Terminal output shows: passed/failed tests, coverage percentage, missing lines
+- Tests use mocking to avoid real API calls
+
+**When to run tests:**
+- Before committing changes to tool code
+- After adding new features or endpoints
+- After dependency updates
+- As part of CI/CD pipeline
 
 ## Budget Controls ($30/month target)
 
