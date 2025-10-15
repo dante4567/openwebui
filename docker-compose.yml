@@ -52,24 +52,24 @@ services:
   # TOOL SERVERS - OpenAPI Tool Servers for Extended LLM Capabilities
   # ===================================================================
 
-  # Weather Tool - Real-time weather forecasts - DISABLED (not needed for GTD)
-  # weather-tool:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.weather
-  #   container_name: openwebui-weather
-  #   ports:
-  #     - "8005:8000"
-  #   restart: unless-stopped
-  #   networks:
-  #     - openwebui-net
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #   # No API key required - uses free Open-Meteo API
-  #   # OpenWebUI URL: http://weather-tool:8000
+  # Weather Tool - Real-time weather forecasts (useful for scheduling context)
+  weather-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.weather
+    container_name: openwebui-weather
+    ports:
+      - "8005:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # No API key required - uses free Open-Meteo API
+    # OpenWebUI URL: http://weather-tool:8000
 
   # Filesystem Tool - Read/write files, search, directory operations
   filesystem-tool:
@@ -406,7 +406,7 @@ services:
       # ========================================
       # WEBUI_SECRET_KEY loaded from .env
       - WEBUI_AUTH=true
-      - ENABLE_SIGNUP=true  # TEMPORARY: Enable for first admin account creation
+      - ENABLE_SIGNUP=false  # Disabled after admin account created (security)
       - ENABLE_LOGIN_FORM=true
       - CORS_ALLOW_ORIGIN=*
 
