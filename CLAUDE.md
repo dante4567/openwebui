@@ -2,16 +2,53 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Reference
+
+**Most Common Commands:**
+```bash
+./test-gtd-stack.sh              # Run full integration test (9 critical areas)
+./run-tests.sh                   # Run unit tests (todoist + caldav)
+docker-compose up -d             # Start all services (10 containers)
+docker-compose logs -f openwebui # View OpenWebUI logs
+docker-compose ps                # Check service health
+```
+
+**Most Common Tasks:**
+- **Edit tool server code**: Edit `todoist-tool/main.py` → `./run-tests.sh todoist` → `docker-compose build todoist-tool` → `docker-compose up -d todoist-tool`
+- **Test full stack**: `./test-gtd-stack.sh` (checks containers, tools, API connectivity, config, models)
+- **Update model pricing**: Edit `CLAUDE.md` budget section + `test-gtd-stack.sh` EXPECTED_MODELS array
+- **Debug tool registration**: Check `test-gtd-stack.sh` Test 8 (queries OpenWebUI config table for Global Tool Servers)
+- **Fix LiteLLM routing**: See Troubleshooting section #7 (models bypass LiteLLM, no caching)
+
+**Key Files:**
+- `docker-compose.yml`: Service definitions (10 containers, line references in docs)
+- `test-gtd-stack.sh`: Integration tests (9 critical areas, exit code 0 = all pass)
+- `run-tests.sh`: Unit tests (todoist + caldav, 87%/92% coverage)
+- `CLAUDE.md`: This file (architecture, commands, troubleshooting)
+- `MODEL-UPDATE-STRATEGY.md`: Model currency tracking (monthly review recommended)
+
 ## Project Overview
 
 OpenWebUI configured for **GTD (Getting Things Done) workflows**: multi-cloud LLM access, TTS/STT, file management, version control, task management, and calendar integration.
 
-**HONEST ASSESSMENT (Updated 2025-10-12):**
+**Architecture Type**: Microservices-based Docker Compose stack with tool servers extending LLM capabilities via OpenAPI.
+
+**Technology Stack**:
+- **Frontend**: OpenWebUI (Python/FastAPI + Svelte)
+- **Vector DB**: ChromaDB (Python)
+- **LLM Gateway**: LiteLLM (Python + Redis caching)
+- **Tool Servers**: FastAPI microservices (Python 3.10)
+- **Orchestration**: Docker Compose
+- **Testing**: pytest + pytest-cov + httpx for mocking
+- **CI/CD**: GitHub Actions (unit tests, integration tests, dependabot)
+
+**HONEST ASSESSMENT (Updated 2025-10-14):**
 - This is **NOT a minimal GTD setup** despite previous claims
 - Currently running: OpenWebUI + ChromaDB + LiteLLM + Redis + SearXNG + Tika + 4 GTD tools (filesystem, git, todoist, caldav)
 - Total: 10 containers (not the "minimal 5" originally documented)
 - **LiteLLM is the gateway**: All API calls go through LiteLLM proxy at `http://litellm:4000`
-- **Models updated Oct 2025**: All providers verified current as of October 2025, outdated models removed (gemini-1.5-* → gemini-2.5-*)
+- **Pricing updated Oct 2025**: All pricing verified accurate as of October 14, 2025 via web search
+- **Models updated Oct 2025**: Using current models - GPT-4.1-mini, Claude Sonnet 4.5, Gemini 2.5, Llama 3.3
 
 ## Architecture
 
@@ -50,14 +87,51 @@ OpenWebUI (8080) → Multi-cloud LLM GUI
 - External (for testing): `http://localhost:4000` (LiteLLM), `http://localhost:8006` (filesystem), `http://localhost:8007` (todoist), etc.
 - **Never use localhost URLs in OpenWebUI GUI** - containers can't reach host network
 
+## Development Approach
+
+**Architecture Pattern**: Microservices communicating via Docker network
+- Each tool server is an independent FastAPI application
+- OpenWebUI discovers tools via OpenAPI spec endpoints
+- All services defined in `docker-compose.yml` with health checks
+- Configuration via environment variables (`.env` file, never committed)
+
+**Code Conventions**:
+- Python tool servers: FastAPI + Pydantic for validation
+- Modern async patterns where beneficial
+- Structured logging with JSON output
+- Retry logic with exponential backoff for API calls (3 retries, 1s/2s/4s)
+- Non-root containers (UID 10001) for security
+
+**Development Workflow**:
+1. **Local changes**: Edit tool server code in `todoist-tool/main.py` or `caldav-tool/main.py`
+2. **Test locally**: `./run-tests.sh todoist` (runs pytest with mocking)
+3. **Rebuild container**: `docker-compose build todoist-tool`
+4. **Restart service**: `docker-compose up -d todoist-tool`
+5. **Verify**: `curl http://localhost:8007/` (should return {"status":"healthy"})
+6. **Integration test**: `./test-gtd-stack.sh` (full stack validation)
+
+**Adding a new tool server**:
+1. Create `new-tool/` directory with `main.py`, `Dockerfile`, `requirements.txt`
+2. Add FastAPI app with health check endpoint (`GET /`)
+3. Define endpoints with Pydantic models for request/response validation
+4. Add `openapi.json` generation (FastAPI does this automatically at `/openapi.json`)
+5. Add service to `docker-compose.yml` (copy pattern from todoist-tool)
+6. Add to `test-gtd-stack.sh` for integration testing
+7. Register in OpenWebUI: Admin Settings → Tools → Add Tool Server → `http://new-tool:8000`
+
 ## Common Commands
 
 ```bash
 # Stack management
-docker-compose up -d                    # Start all services (OpenWebUI + 4 tools)
+docker-compose up -d                    # Start all services (10 containers)
 docker-compose down                     # Stop all services
 docker-compose logs -f openwebui        # View logs
+docker-compose logs -f todoist-tool     # View specific tool logs
 docker-compose ps                       # Check service status
+docker-compose restart <service>        # Restart specific service
+
+# Quick container health check
+docker-compose ps --format json | jq -r '.[] | "\(.Service): \(.State) (\(.Health // "no healthcheck"))"'
 
 # Configuration backup/restore
 # OpenWebUI settings can be exported/imported via the web UI:
@@ -110,13 +184,38 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 - `ENABLE_MEMORY=false`: Disabled (requires ChromaDB)
 - All RAG settings: Commented out (not needed for GTD)
 
+**RAG/Embedding Configuration** (OpenWebUI database):
+- **Embedding Engine**: `openai` (configured in OpenWebUI)
+- **Embedding Model**: `text-embedding-3-large` (updated 2025-10-16)
+- **Use Case**: German + English documents (multilingual optimized)
+- **Performance**: 80.5% RAG accuracy, 88.8% contextual understanding, 54.9% multilingual
+- **Cost**: $0.13 per 1M tokens (~$0.07/month for typical usage)
+- **Alternative**: `text-embedding-3-small` ($0.02 per 1M tokens, 75.8% RAG accuracy - only if embedding millions of docs)
+- **Storage**: Configured in OpenWebUI database (`/app/backend/data/webui.db` → config table → rag.embedding_model)
+- **Note**: This setting is stored in OpenWebUI's database, not in docker-compose.yml or .env
+
 ## GTD Tool Servers
 
-**All tool servers follow same pattern:**
-- Base image: `python:3.10.12-slim`
-- Run as non-root `appuser` (UID 10001)
-- Expose port 8000 internally
-- Health check on `/` or `/docs` endpoint
+**Tool Server Architecture**:
+- **Pattern**: FastAPI app + Pydantic validation + OpenAPI schema
+- **Base image**: `python:3.10.12-slim`
+- **Security**: Non-root `appuser` (UID 10001)
+- **Networking**: Expose port 8000 internally (mapped to 800X externally)
+- **Health checks**: `/` or `/docs` endpoint
+- **Discovery**: OpenWebUI reads `/openapi.json` to discover functions
+- **Retry logic**: Exponential backoff for external API calls (Todoist, CalDAV)
+- **Error handling**: Structured JSON responses with status codes
+
+**Tool Server File Structure** (todoist-tool, caldav-tool):
+```
+tool-name/
+├── main.py              # FastAPI app with endpoints
+├── Dockerfile           # Multi-stage build (testing not included in prod)
+├── requirements.txt     # Production dependencies
+├── requirements-test.txt # Test dependencies (pytest, pytest-cov, httpx)
+└── tests/
+    └── test_main.py     # Unit tests with mocked API calls
+```
 
 **Filesystem & Git tools (from openapi-servers repo):**
 - **CRITICAL**: Both mount `~/ai-workspace:/workspace` (docker-compose.yml lines 85, 109)
@@ -126,19 +225,79 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 - For read-only: Add `:ro` suffix: `~/ai-workspace:/workspace:ro`
 
 **Todoist tool (custom):**
-- Location: `todoist-tool/main.py`
-- Endpoints: `/tasks` (list, create), `/tasks/{id}` (get, update, delete), `/tasks/{id}/close` (complete)
-- Uses Todoist REST API v2: https://api.todoist.com/rest/v2
-- Requires: `TODOIST_API_KEY` from .env
+- **Location**: `todoist-tool/main.py`
+- **Endpoints**: `/tasks` (list, create), `/tasks/{id}` (get, update, delete), `/tasks/{id}/close` (complete)
+- **External API**: Todoist REST API v2 (https://api.todoist.com/rest/v2)
+- **Requires**: `TODOIST_API_KEY` from .env
+- **Retry logic**: 3 attempts with exponential backoff (1s, 2s, 4s) for network errors
+- **Error handling**: Returns 404 for not found, 500 for API errors, 503 for network issues
 
 **CalDAV/CardDAV tool (custom):**
-- Location: `caldav-tool/main.py`
-- Endpoints:
-  - Calendar: `/calendars`, `/events` (list, create)
-  - Contacts: `/addressbooks`, `/contacts` (list, create)
-- Uses Python `caldav` library
-- Requires: `CALDAV_URL`, `CALDAV_USERNAME`, `CALDAV_PASSWORD`
-- Optional: Separate CardDAV creds (defaults to CalDAV)
+- **Location**: `caldav-tool/main.py`
+- **Endpoints**:
+  - Calendar: `/calendars` (list), `/events` (list, create), `/events/{uid}` (delete)
+  - Contacts: `/addressbooks` (list), `/contacts` (list, create)
+- **External API**: CalDAV/CardDAV protocol (uses Python `caldav` library)
+- **Requires**: `CALDAV_URL`, `CALDAV_USERNAME`, `CALDAV_PASSWORD`
+- **Optional**: Separate CardDAV creds (defaults to CalDAV)
+- **Retry logic**: Built into `caldav` library (3 retries by default)
+- **Error handling**: Returns 404 for not found, 500 for CalDAV errors, detailed error messages
+
+**Code patterns used in tool servers:**
+```python
+# 1. FastAPI endpoint with Pydantic validation
+@app.post("/tasks")
+async def create_task(request: CreateTaskRequest):
+    # Pydantic auto-validates request body
+    # Returns validation error if fields missing/wrong type
+    pass
+
+# 2. Retry logic with exponential backoff
+for attempt in range(MAX_RETRIES):
+    try:
+        response = requests.get(url, timeout=10)
+        return response.json()
+    except requests.RequestException as e:
+        if attempt < MAX_RETRIES - 1:
+            time.sleep(2 ** attempt)  # 1s, 2s, 4s
+        else:
+            raise HTTPException(status_code=503, detail=str(e))
+
+# 3. Error response format
+raise HTTPException(
+    status_code=404,
+    detail={"error": "Task not found", "task_id": task_id}
+)
+
+# 4. Health check endpoint (required for OpenWebUI)
+@app.get("/")
+async def health_check():
+    return {"status": "healthy", "service": "todoist-tool"}
+```
+
+**Testing patterns:**
+```python
+# 1. Mock external API calls with httpx_mock
+@pytest.mark.asyncio
+async def test_create_task(httpx_mock):
+    httpx_mock.add_response(
+        url="https://api.todoist.com/rest/v2/tasks",
+        method="POST",
+        json={"id": "123", "content": "Test task"}
+    )
+    # Now call your endpoint, it will use mocked response
+
+# 2. Test error handling
+@pytest.mark.asyncio
+async def test_network_error(httpx_mock):
+    httpx_mock.add_exception(httpx.ConnectError("Network error"))
+    # Verify your code returns 503 with retry logic
+
+# 3. Test validation
+async def test_invalid_request():
+    response = client.post("/tasks", json={"invalid": "field"})
+    assert response.status_code == 422  # Pydantic validation error
+```
 
 ## Testing
 
@@ -153,26 +312,45 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 ./run-tests.sh              # Run all tests (both tools)
 ./run-tests.sh todoist      # Run only todoist-tool tests
 ./run-tests.sh caldav       # Run only caldav-tool tests
+
+# Run specific test file
+cd todoist-tool && source .venv-test/bin/activate && pytest tests/test_main.py::test_health_check -v
+
+# Run with verbose output and no coverage
+cd todoist-tool && source .venv-test/bin/activate && pytest tests/ -vv
+
+# Check coverage for specific module
+cd caldav-tool && source .venv-test/bin/activate && pytest tests/ --cov=main --cov-report=term-missing
 ```
 
 **What is tested:**
 - Health check endpoints
 - All CRUD operations (list, create, get, update, delete)
 - Error handling (network errors, timeouts, API errors)
-- Retry logic with exponential backoff
-- Request parameter validation
-- Response format validation
+- Retry logic with exponential backoff (mocked with delays)
+- Request parameter validation (Pydantic models)
+- Response format validation (JSON structure)
+- Edge cases (empty results, invalid IDs, missing fields)
 
 **Test reports:**
-- HTML coverage reports: `{tool}/htmlcov/index.html`
+- HTML coverage reports: `{tool}/htmlcov/index.html` (open in browser)
 - Terminal output shows: passed/failed tests, coverage percentage, missing lines
-- Tests use mocking to avoid real API calls
+- Tests use httpx mock for HTTP calls (no real API requests)
+
+**Writing new tests:**
+1. Add test function to `tests/test_main.py` (prefix with `test_`)
+2. Use `@pytest.mark.asyncio` for async endpoints
+3. Mock external API calls with `httpx_mock.add_response()`
+4. Assert response status codes and JSON structure
+5. Test both success and error paths
+6. Run `./run-tests.sh <tool>` to verify
 
 **When to run tests:**
 - Before committing changes to tool code
 - After adding new features or endpoints
 - After dependency updates
-- As part of CI/CD pipeline
+- As part of CI/CD pipeline (automated on push)
+- When debugging issues (add print statements to tests)
 
 ## Budget Controls ($30/month target)
 
@@ -180,29 +358,34 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 - `DEFAULT_MODELS=gpt-4o-mini` in docker-compose.yml forces cheap model
 - **All API calls go through LiteLLM** which has caching enabled (saves $$)
 
-**Current model pricing (Oct 2025, per 1M tokens):**
+**Current model pricing (Oct 2025, per 1M tokens - VERIFIED Oct 14, 2025):**
 
-| Model | Input | Output | Use Case |
-|-------|-------|--------|----------|
-| **gpt-4.1-mini** | $0.15 | $0.60 | **NEW** - Best budget option |
-| **gpt-4o-mini** | $0.15 | $0.60 | Current default, proven reliable |
-| gpt-4o | $2.50 | $10.00 | Complex tasks only |
-| **claude-sonnet-4-5** | $3.00 | $15.00 | **NEW** - Most capable Claude |
-| claude-3-5-sonnet | $3.00 | $15.00 | Previous flagship |
-| claude-3-5-haiku | $1.00 | $5.00 | Fast, cheap Claude |
-| **llama-3.3-70b** | $0.59 | $0.79 | Groq (very fast, cheap) |
-| llama-3.1-8b | $0.05 | $0.08 | Groq (fastest, cheapest) |
-| **gemini-2.5-pro** | $1.25 | $5.00 | **NEW** - Replaced 1.5-pro |
-| **gemini-2.5-flash** | $0.075 | $0.30 | **NEW** - Replaced 1.5-flash |
-| gemini-2.0-flash | $0.075 | $0.30 | Alternative budget option |
+| Model | Input | Output | Use Case | Notes |
+|-------|-------|--------|----------|-------|
+| **gpt-4.1-mini** | $0.40 | $1.60 | Good balance of cost/performance | 1M token context |
+| **gpt-4o-mini** | $0.15 | $0.60 | **BEST BUDGET** - Default choice | Proven reliable |
+| gpt-4o | $2.50 | $10.00 | Complex tasks only | High quality |
+| **claude-sonnet-4-5** | $3.00 | $15.00 | Best for coding (Sept 2025) | Latest flagship |
+| claude-3-5-sonnet | $3.00 | $15.00 | Previous flagship | Still excellent |
+| claude-3-5-haiku | $1.00 | $5.00 | Fast, cheap Claude | Good for simple tasks |
+| **llama-3.3-70b** | $0.59 | $0.79 | Groq - very fast, cheap | Best Groq option |
+| llama-3.1-8b | $0.05 | $0.08 | Groq - fastest, cheapest | Simple tasks |
+| **gemini-2.5-pro** | $1.25 | $10.00 | Reasoning model (needs 100-300 tokens) | ⚠️ Price increased Jun 2025 |
+| **gemini-2.5-flash** | $0.30 | $2.50 | Reasoning model (needs 50-200 tokens) | ⚠️ Price increased Jun 2025 |
+| gemini-2.0-flash | $0.10 | $0.40 | Standard model (normal token usage) | Good budget choice |
 
-**Cost estimates:**
-- Typical agentic session (50k in, 10k out):
-  - llama-3.1-8b (Groq): ~$0.003 (CHEAPEST)
-  - gemini-2.5-flash: ~$0.007
-  - gpt-4.1-mini: ~$0.014
-  - llama-3.3-70b (Groq): ~$0.037
-- $30/month = ~2000 gpt-4.1-mini sessions = 65/day
+**Cost estimates (50k in, 10k out per session):**
+- llama-3.1-8b (Groq): ~$0.003 (CHEAPEST)
+- gpt-4o-mini: ~$0.014 (BEST BUDGET BALANCE)
+- gemini-2.0-flash: ~$0.009 (good Google option)
+- gpt-4.1-mini: ~$0.036 (1M context, pricier than 4o-mini)
+- gemini-2.5-flash: ~$0.040 (reasoning model, expensive!)
+- llama-3.3-70b (Groq): ~$0.037
+
+**Budget planning:**
+- $30/month with gpt-4o-mini = ~2100 sessions = 70/day
+- $30/month with gpt-4.1-mini = ~830 sessions = 27/day
+- $30/month with gemini-2.5-flash = ~750 sessions = 25/day
 
 **LiteLLM caching benefits:**
 - Redis caching enabled - repeated queries cost $0
@@ -222,25 +405,29 @@ curl http://localhost:8003/docs         # Git tool OpenAPI docs
 
 **Note:** LiteLLM Admin UI requires PostgreSQL database (not enabled). Cost tracking via logs and provider dashboards is sufficient for GTD use case.
 
-**Recommendations:**
-- Use **Groq's llama-3.1-8b for cheapest** ($0.003/session - 10x cheaper than GPT-4o-mini)
-- Use gemini-2.5-flash for budget Google ($0.007/session)
-- Use gpt-4.1-mini or gpt-4o-mini for OpenAI (best balance $0.014/session)
-- Use llama-3.3-70b (Groq) for best Groq performance ($0.037/session)
-- Avoid gpt-4o and claude-sonnet unless necessary (expensive)
+**Recommendations (Oct 2025):**
+- **DEFAULT: gpt-4o-mini** - Best balance of quality/cost ($0.014/session)
+- **CHEAPEST: llama-3.1-8b (Groq)** - For simple tasks ($0.003/session, 5x cheaper)
+- **BUDGET GOOGLE: gemini-2.0-flash** - NOT 2.5-flash! ($0.009/session vs $0.040)
+- **AVOID gpt-4.1-mini for budget** - 2.6x more expensive than gpt-4o-mini despite "mini" name
+- **AVOID gemini-2.5 models for budget** - Reasoning models are expensive, use 2.0-flash instead
+- Use gpt-4o, claude-sonnet-4-5 only for complex tasks (premium pricing)
 - LiteLLM caching saves 50-80% on repeated queries
-- Monitor usage weekly via LiteLLM dashboard
+- Monitor usage weekly via provider dashboards
 
 ## Troubleshooting
 
 **Common issues:**
 
-1. **Tool not working in chat**: Small models lack tool support. Use GPT-4.1-mini or GPT-4o-mini (best balance), Claude Sonnet 4.5, or Gemini 2.0 Flash.
+1. **Tool not working in chat**: Small models lack tool support. Use GPT-4o-mini (recommended), GPT-4.1-mini, Claude Sonnet 4.5, or Gemini 2.0 Flash.
 
-   **Note on Gemini 2.5 models**: These are reasoning models that "think" before responding:
-   - gemini-2.5-pro: Needs 100-300 max_tokens (uses ~157 reasoning + text tokens)
-   - gemini-2.5-flash: Needs 50-200 max_tokens (uses ~21 reasoning + text tokens)
-   - gemini-2.0-flash: Standard model, works with normal 5-20 tokens
+   **Note on Gemini model selection (Oct 2025):**
+   - **Gemini 2.0 Flash**: Standard model, best for budget ($0.10/$0.40 per 1M tokens)
+   - **Gemini 2.5 models**: Reasoning models that "think" before responding (EXPENSIVE!)
+     - gemini-2.5-pro: Needs 100-300 max_tokens (~157 reasoning + text tokens) - $1.25/$10.00
+     - gemini-2.5-flash: Needs 50-200 max_tokens (~21 reasoning + text tokens) - $0.30/$2.50
+     - ⚠️ Gemini 2.5 pricing increased significantly in June 2025
+     - Only use 2.5 models when you need reasoning capabilities and are OK with higher costs
    - If you get null/empty responses from 2.5 models, increase max_tokens parameter
 
 2. **Tool server URL error in GUI**: Must use internal Docker network names:
@@ -288,7 +475,20 @@ docker exec openwebui curl http://caldav-tool:8000/
 
 ## Key Gotchas
 
-1. **Workspace location**: Files created by LLM are in `~/ai-workspace` (NOT `~/input-rag`). This is a git repo.
+1. **Two different workspace directories** (often confused):
+   - **`~/ai-workspace`**: For LLM file operations (mounted to filesystem-tool & git-tool)
+     - Used by: Filesystem tool, Git tool (both share this directory)
+     - Purpose: LLM can read/write files, commit to git
+     - Mounted at: `~/ai-workspace:/workspace` (docker-compose.yml lines 87, 118)
+     - Security: LLM has **write access** - can modify/delete files
+     - Initialized as: Git repository with README.md
+   - **`~/input-rag`**: For RAG documents (NOT mounted to containers in current setup)
+     - Used by: Historically for RAG ingestion, but NOT currently used
+     - Purpose: Originally intended for document upload to ChromaDB
+     - Status: Directory exists but not referenced in docker-compose.yml
+     - **Important**: README.md mentions this extensively but it's not part of active stack
+
+   **TLDR**: Use `~/ai-workspace` for LLM file operations. `~/input-rag` is legacy/unused in current setup.
 
 2. **LiteLLM is REQUIRED:**
    - All API calls go through LiteLLM proxy at `http://litellm:4000`
@@ -343,22 +543,24 @@ docker exec openwebui curl http://caldav-tool:8000/
 **CI/CD (Automated via GitHub Actions):**
 
 ✅ **Unit Tests** (`.github/workflows/unit-tests.yml`)
-- Runs on every push/PR to main or develop
-- Tests both todoist-tool and caldav-tool independently
-- Coverage reporting to Codecov
-- Fails if tests fail or coverage drops
-- Typical run time: ~2-3 minutes
+- **Trigger**: Every push/PR to main or develop
+- **Tests**: todoist-tool and caldav-tool independently
+- **Coverage**: Reports to Codecov (fails if coverage drops below 80%)
+- **Run time**: ~2-3 minutes
+- **Python version**: 3.10 (matches production containers)
+- **Caching**: pip packages cached for speed
+- **Artifacts**: HTML coverage reports uploaded
 
 ✅ **Integration Tests** (`.github/workflows/integration-tests.yml`)
-- Runs on push/PR to main, or manually via workflow_dispatch
-- Tests:
-  - Docker image builds
-  - Container health checks
-  - **OpenWebUI configuration validation:**
+- **Trigger**: Push/PR to main, or manual via workflow_dispatch
+- **Tests**:
+  - Docker image builds (todoist-tool, caldav-tool, filesystem-tool, git-tool)
+  - Container health checks (all 10 services)
+  - **OpenWebUI configuration validation**:
     - Starts full OpenWebUI stack (OpenWebUI + all 4 tool servers)
     - Validates OpenWebUI API responds correctly
     - Verifies tool server connectivity from OpenWebUI container
-    - **Queries OpenWebUI database:**
+    - **Queries OpenWebUI database**:
       - Lists all tables
       - Checks config settings
       - Verifies user accounts
@@ -367,22 +569,41 @@ docker exec openwebui curl http://caldav-tool:8000/
       - Displays prompts
     - Checks logs for critical errors
   - Configuration validation (docker-compose.yml syntax)
-  - Security checks (no hardcoded API keys)
-  - Documentation completeness
+  - Security checks (no hardcoded API keys with `grep -r "sk-proj-" --exclude-dir=.git .`)
+  - Documentation completeness (README.md, CLAUDE.md, MODEL-UPDATE-STRATEGY.md)
   - Markdown link validation
-- Typical run time: ~10-15 minutes (longer due to full stack startup)
+- **Run time**: ~10-15 minutes (longer due to full stack startup)
+- **Matrix strategy**: Tests against multiple tool configurations
 
 ✅ **Dependency Updates** (`.github/dependabot.yml`)
-- Weekly automated PRs for dependency updates
-- Tracks: GitHub Actions, Python packages (pip), Docker base images
-- Groups minor/patch updates together
-- Auto-labels PRs by component (todoist-tool, caldav-tool, github-actions)
+- **Schedule**: Weekly automated PRs for dependency updates
+- **Tracks**: GitHub Actions (v4-v5), Python packages (pip), Docker base images
+- **Grouping**: Minor/patch updates grouped together
+- **Auto-labels**: PRs labeled by component (todoist-tool, caldav-tool, github-actions)
+- **Security**: Auto-merges security updates if tests pass
 
-**CI Status:**
+**CI Status**:
 - All workflows use latest GitHub Actions versions (v4-v5)
 - Python 3.10 for consistency with production containers
-- Pip caching for faster builds
-- Parallel test execution for speed
+- Pip caching for faster builds (~30% speedup)
+- Parallel test execution for speed (pytest-xdist)
+- Fail-fast disabled to see all test results
+
+**Debugging CI failures**:
+```bash
+# Reproduce unit test failure locally
+./run-tests.sh todoist
+
+# Reproduce integration test failure locally
+./test-gtd-stack.sh
+
+# Check specific workflow logs
+gh run list --workflow=unit-tests.yml
+gh run view <run-id> --log
+
+# Re-run failed jobs
+gh run rerun <run-id> --failed
+```
 
 **Local CI testing:**
 ```bash
