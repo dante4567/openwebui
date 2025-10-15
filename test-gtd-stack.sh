@@ -377,17 +377,22 @@ print_header "Test 10: Model Availability & Pricing"
 
 print_test "Checking expected models are configured..."
 
-# Expected budget-friendly models (updated Oct 2025)
+# Expected models with current pricing (updated Oct 14, 2025 via web search)
+# Format: "model-name:Provider:input-price:output-price" (per 1M tokens)
 EXPECTED_MODELS=(
     "gpt-4o-mini:OpenAI:0.15:0.60"
+    "gpt-4.1-mini:OpenAI:0.40:1.60"
     "gpt-4o:OpenAI:2.50:10.00"
+    "claude-sonnet-4-5:Anthropic:3.00:15.00"
     "claude-3-5-sonnet:Anthropic:3.00:15.00"
-    "gemini-2.5-flash:Google:0.075:0.30"
-    "gemini-2.0-flash:Google:0.075:0.30"
     "llama-3.3-70b:Groq:0.59:0.79"
+    "gemini-2.5-pro:Google:1.25:10.00"
+    "gemini-2.5-flash:Google:0.30:2.50"
+    "gemini-2.0-flash:Google:0.10:0.40"
 )
 
 # Known outdated/expensive models to warn about
+# Note: Gemini 1.5 models replaced by 2.x series in 2024-2025
 OUTDATED_MODELS=(
     "gpt-4-turbo"
     "gpt-4-1106"
@@ -395,6 +400,7 @@ OUTDATED_MODELS=(
     "gpt-3.5-turbo"
     "gemini-1.5-pro"
     "gemini-1.5-flash"
+    "gemini-pro"  # Old name, use gemini-2.x instead
 )
 
 # Check if API keys are set and test them with real API calls

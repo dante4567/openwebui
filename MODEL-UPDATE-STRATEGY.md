@@ -4,20 +4,28 @@ This document tracks LLM model versions and provides guidance on keeping them cu
 
 ---
 
-## Current Model Status (January 2025)
+## Current Model Status (October 2025)
 
-### ✅ All Models Are Current
+### ✅ Models Updated - PRICING CHANGES DETECTED
 
 | Provider | Model | Version/Date | Status | Cost (per 1M tokens) |
 |----------|-------|--------------|--------|---------------------|
-| **OpenAI** | gpt-4o-mini | 2024-07-18 | ✅ Latest budget model | $0.15 / $0.60 |
-| **OpenAI** | gpt-4o | 2024 release | ✅ Latest flagship | $2.50 / $10.00 |
-| **Anthropic** | claude-3-5-sonnet | 20241022 | ✅ Latest (Oct 2024) | $3.00 / $15.00 |
-| **Groq** | llama-3.3-70b-versatile | 2024 release | ✅ Latest Meta model | $0.59 / $0.79 |
-| **Google** | gemini-1.5-pro | 2024 release | ✅ Latest flagship | $1.25 / $5.00 |
-| **Google** | gemini-1.5-flash | 2024 release | ✅ Latest budget | $0.075 / $0.30 |
+| **OpenAI** | gpt-4o-mini | 2024-07-18 | ✅ Best budget model | $0.15 / $0.60 |
+| **OpenAI** | gpt-4.1-mini | 2025-04-14 | ✅ Current (1M context) | $0.40 / $1.60 |
+| **OpenAI** | gpt-4o | 2024 release | ⚠️ GPT-5 released, 4o still good | $2.50 / $10.00 |
+| **Anthropic** | claude-sonnet-4-5 | 20250929 | ✅ Latest (Sept 2025) | $3.00 / $15.00 |
+| **Anthropic** | claude-3-5-sonnet | 20241022 | ✅ Still good (Oct 2024) | $3.00 / $15.00 |
+| **Groq** | llama-3.3-70b-versatile | Dec 2024 release | ✅ Latest Meta model | $0.59 / $0.79 |
+| **Google** | gemini-2.5-pro | Apr 2025 | ⚠️ PRICE INCREASED Jun 2025 | $1.25 / $10.00 |
+| **Google** | gemini-2.5-flash | Apr 2025 | ⚠️ PRICE INCREASED Jun 2025 | $0.30 / $2.50 |
+| **Google** | gemini-2.0-flash | 2024 release | ✅ Best Google budget | $0.10 / $0.40 |
 
-**Last verified**: January 12, 2025 via API calls
+**Last verified**: October 14, 2025 via web search
+
+**CRITICAL CHANGES:**
+- ⚠️ Gemini 2.5 Flash pricing increased 300% (input) and 733% (output) in June 2025
+- ⚠️ GPT-4.1-mini is 2.6x more expensive than GPT-4o-mini despite "mini" name
+- ✅ Use gpt-4o-mini or gemini-2.0-flash for budget workloads
 
 ---
 
@@ -290,12 +298,12 @@ curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-
 
 ## Quick Reference: Provider Update Patterns
 
-| Provider | Typical Update Frequency | Naming Convention |
-|----------|-------------------------|-------------------|
-| **OpenAI** | Every 3-6 months | `gpt-4o`, `gpt-4o-mini` (no dates) |
-| **Anthropic** | Every 6-9 months | `claude-3-5-sonnet-YYYYMMDD` |
-| **Google** | Every 3-4 months | `gemini-1.5-pro`, `gemini-2.0-flash` |
-| **Groq** | Follows Meta releases | `llama-X.Y-NNb-variant` |
+| Provider | Typical Update Frequency | Naming Convention | Notes |
+|----------|-------------------------|-------------------|-------|
+| **OpenAI** | Every 3-6 months | `gpt-4o`, `gpt-4o-mini`, `gpt-4.1-mini` | GPT-5 released Oct 2025 |
+| **Anthropic** | Every 6-9 months | `claude-3-5-sonnet-YYYYMMDD`, `claude-sonnet-4-5-YYYYMMDD` | 4.5 released Sept 2025 |
+| **Google** | Every 3-4 months | `gemini-2.0-flash`, `gemini-2.5-pro` | Pricing changes Jun 2025 |
+| **Groq** | Follows Meta releases | `llama-X.Y-NNb-variant` | Llama 3.3 70B latest |
 
 **Model lifetimes**: Typically 12-18 months before deprecation announced, 6 months notice period.
 
@@ -377,4 +385,28 @@ curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-
 - ✅ CI/CD can run weekly checks (see CI-CD-RECOMMENDATIONS.md)
 - ✅ RSS feeds available for all major providers
 
-**Next review due**: February 2025
+**Next review due**: November 2025
+
+---
+
+## October 2025 Update Summary
+
+**What Changed:**
+1. **Gemini 2.5 pricing shock**: Google increased pricing significantly in June 2025
+   - gemini-2.5-flash: $0.075→$0.30 input (300%), $0.30→$2.50 output (733%)
+   - gemini-2.5-pro: Output increased from $5.00→$10.00 (100%)
+2. **GPT-5 released**: OpenAI's new flagship (Oct 2025), but GPT-4o still available
+3. **Claude Sonnet 4.5**: Released Sept 2025, best for coding
+4. **GPT-4.1-mini confusion**: Despite "mini" name, it's more expensive than GPT-4o-mini
+
+**Budget Recommendations Updated:**
+- OLD: "Use gemini-2.5-flash for budget Google ($0.007/session)"
+- NEW: "Use gemini-2.0-flash for budget Google ($0.009/session) - 2.5 is expensive!"
+- OLD: "Use gpt-4.1-mini for budget OpenAI"
+- NEW: "Use gpt-4o-mini for budget OpenAI - 4.1-mini is 2.6x more expensive"
+
+**Action Taken:**
+- ✅ Updated CLAUDE.md with correct October 2025 pricing
+- ✅ Updated MODEL-UPDATE-STRATEGY.md
+- ✅ Verified all pricing via web search (Oct 14, 2025)
+- ⚠️ Need to update test-gtd-stack.sh EXPECTED_MODELS array
