@@ -81,8 +81,27 @@ echo "✅ Backup saved to /tmp/config-backup-*.json"
 echo
 echo "🔄 Step 2: Adding GTD prompts to database..."
 docker cp "$SCRIPT_DIR/gtd-prompts.sql" openwebui:/tmp/gtd-prompts.sql
-docker exec openwebui sqlite3 /app/backend/data/webui.db < /tmp/gtd-prompts.sql
-echo "✅ 6 GTD prompts added"
+docker exec openwebui python3 << 'PYEOF'
+import sqlite3
+
+# Read SQL file
+with open('/tmp/gtd-prompts.sql', 'r') as f:
+    sql = f.read()
+
+# Execute SQL
+conn = sqlite3.connect('/app/backend/data/webui.db')
+cursor = conn.cursor()
+
+# Split by semicolons and execute each statement
+for statement in sql.split(';'):
+    statement = statement.strip()
+    if statement and not statement.startswith('--'):
+        cursor.execute(statement)
+
+conn.commit()
+conn.close()
+print("✅ 6 GTD prompts added")
+PYEOF
 
 echo
 echo "🔄 Step 3: Applying optimized config..."
