@@ -2,6 +2,18 @@
 
 **OpenWebUI setup with tool servers for AI-assisted task and calendar management**
 
+## 🚀 First Time Here?
+
+**Want to get started fast?** Jump to [Quick Start](#quick-start-5-minutes) (5 minutes to running)
+
+**Understanding the stack:** Read [What's Included](#whats-included) and [Why This Setup](#why-this-setup)
+
+**Technical details:** Check [CLAUDE.md](CLAUDE.md) (developer reference) or [docs/](docs/) for specific topics
+
+**Production deployment?** ⚠️ Read [HONEST-STATUS.md](HONEST-STATUS.md) first - this is designed for local development
+
+---
+
 **⚠️ HONEST DISCLAIMER:**
 - **Target use case**: Single-user local development
 - **NOT production-ready**: No authentication, rate limiting, or monitoring
@@ -113,6 +125,29 @@ This way you can spin up a fully-configured OpenWebUI on any machine in 2 minute
 
 ---
 
+## Prerequisites
+
+Before you begin, ensure you have:
+
+**Required:**
+- **Docker** 20.10+ and **Docker Compose** 2.0+
+  - Check: `docker --version` and `docker-compose --version`
+- **2GB+ RAM**, 10GB disk space
+- **macOS, Linux, or Windows** (Windows requires WSL2)
+- **At least one LLM API key** (see [.env.example](.env.example))
+  - OpenAI (recommended): GPT models + Whisper + TTS + embeddings
+  - Groq (free tier): Fast inference, great for testing
+  - Anthropic: Claude models (excellent for writing)
+  - Google: Gemini models
+
+**Optional (for GTD tools):**
+- Todoist API key ([get here](https://todoist.com/prefs/integrations/developer))
+- CalDAV server (iCloud, Nextcloud, Fastmail, etc.)
+
+**Resource usage:** 800 MB RAM, ~6 GB disk for images. See [HOUSEKEEPING-AUDIT.md](HOUSEKEEPING-AUDIT.md) for small machine options.
+
+---
+
 ## Quick Start (5 Minutes)
 
 ### Method 1: Fresh Setup (Recommended)
@@ -132,13 +167,21 @@ mkdir -p ~/input-rag
 # 4. Start the stack
 docker-compose up -d
 
-# 5. Wait ~30 seconds, then access
+# 5. Wait ~30 seconds, then verify everything is running
+./scripts/test-gtd-stack.sh  # Optional but recommended - verifies all services
+
+# 6. Access OpenWebUI
 open http://localhost:8080
 
-# 6. Create admin account (first user = admin)
+# 7. Create admin account (first user = admin)
 ```
 
 **That's it!** You now have OpenWebUI with TTS, STT, image generation, RAG, and 4 tool servers running.
+
+**Next steps:**
+- Test a tool: Ask "What's the weather in Berlin?"
+- Import GTD prompts: See [docs/GTD.md](docs/GTD.md)
+- Read developer guide: [CLAUDE.md](CLAUDE.md)
 
 ### Method 2: Import Pre-Configured Settings (Fast Setup)
 

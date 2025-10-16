@@ -6,18 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Most Common Commands:**
 ```bash
-./test-gtd-stack.sh              # Run full integration test (9 critical areas)
-./run-tests.sh                   # Run unit tests (todoist + caldav)
+./scripts/test-gtd-stack.sh      # Run full integration test (9 critical areas)
+./scripts/run-tests.sh           # Run unit tests (todoist + caldav)
 docker-compose up -d             # Start all services (10 containers)
 docker-compose logs -f openwebui # View OpenWebUI logs
 docker-compose ps                # Check service health
 ```
 
 **Most Common Tasks:**
-- **Edit tool server code**: Edit `todoist-tool/main.py` → `./run-tests.sh todoist` → `docker-compose build todoist-tool` → `docker-compose up -d todoist-tool`
-- **Test full stack**: `./test-gtd-stack.sh` (checks containers, tools, API connectivity, config, models)
-- **Update model pricing**: Edit `CLAUDE.md` budget section + `test-gtd-stack.sh` EXPECTED_MODELS array
-- **Debug tool registration**: Check `test-gtd-stack.sh` Test 8 (queries OpenWebUI config table for Global Tool Servers)
+- **Edit tool server code**: Edit `todoist-tool/main.py` → `./scripts/run-tests.sh todoist` → `docker-compose build todoist-tool` → `docker-compose up -d todoist-tool`
+- **Test full stack**: `./scripts/test-gtd-stack.sh` (checks containers, tools, API connectivity, config, models)
+- **Update model pricing**: Edit `CLAUDE.md` budget section + `scripts/test-gtd-stack.sh` EXPECTED_MODELS array
+- **Debug tool registration**: Check `scripts/test-gtd-stack.sh` Test 8 (queries OpenWebUI config table for Global Tool Servers)
 - **Fix LiteLLM routing**: See Troubleshooting section #7 (models bypass LiteLLM, no caching)
 
 **Key Files:**
@@ -47,8 +47,8 @@ OpenWebUI configured for **task and calendar management via LLM**: multi-cloud L
 - **NOT production-ready**: No authentication on tools, no rate limiting, no monitoring, single-container deployment
 - **NOT a complete GTD system**: Has tools that CAN support GTD, but no automated workflow implementation
 - **LiteLLM is the gateway**: All API calls go through LiteLLM proxy at `http://litellm:4000`
-- **Pricing updated Oct 2025**: All pricing verified accurate as of October 14, 2025 via web search
-- **Models updated Oct 2025**: Using current models - GPT-4.1-mini, Claude Sonnet 4.5, Gemini 2.5, Llama 3.3
+- **Pricing updated Oct 2025**: All pricing verified accurate as of October 16, 2025 via API
+- **Models updated Oct 2025**: 16 models total - OpenAI (3), Anthropic (3), Groq (7), Google (3)
 
 **What This IS:**
 - ✅ Well-tested local development setup (64 unit tests, 26 integration tests)
@@ -70,7 +70,7 @@ OpenWebUI (8080) → Multi-cloud LLM GUI
 ├── LiteLLM Proxy (4000): Unified gateway with caching, fallbacks, cost tracking
 │   ├── OpenAI: gpt-4.1-mini, gpt-4o-mini, gpt-4o
 │   ├── Anthropic: claude-sonnet-4-5, claude-3-5-sonnet, claude-3-5-haiku
-│   ├── Groq: llama-3.3-70b, llama-3.1-8b (fast & cheap)
+│   ├── Groq (7 models): llama-3.3-70b, llama-3.1-8b, gpt-oss-20b, gpt-oss-120b, kimi-k2 (262k context), groq-compound (web search), qwen3-32b
 │   └── Google: gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash
 ├── Redis (6379): Response caching for LiteLLM
 ├── ChromaDB (3000): Vector database for RAG
@@ -117,11 +117,11 @@ OpenWebUI (8080) → Multi-cloud LLM GUI
 
 **Development Workflow**:
 1. **Local changes**: Edit tool server code in `todoist-tool/main.py` or `caldav-tool/main.py`
-2. **Test locally**: `./run-tests.sh todoist` (runs pytest with mocking)
+2. **Test locally**: `./scripts/run-tests.sh todoist` (runs pytest with mocking)
 3. **Rebuild container**: `docker-compose build todoist-tool`
 4. **Restart service**: `docker-compose up -d todoist-tool`
 5. **Verify**: `curl http://localhost:8007/` (should return {"status":"healthy"})
-6. **Integration test**: `./test-gtd-stack.sh` (full stack validation)
+6. **Integration test**: `./scripts/test-gtd-stack.sh` (full stack validation)
 
 **Adding a new tool server**:
 1. Create `new-tool/` directory with `main.py`, `Dockerfile`, `requirements.txt`
@@ -409,7 +409,7 @@ cd caldav-tool && source .venv-test/bin/activate && pytest tests/ --cov=main --c
 3. Mock external API calls with `httpx_mock.add_response()`
 4. Assert response status codes and JSON structure
 5. Test both success and error paths
-6. Run `./run-tests.sh <tool>` to verify
+6. Run `./scripts/run-tests.sh <tool>` to verify
 
 **When to run tests:**
 - Before committing changes to tool code
@@ -424,7 +424,7 @@ cd caldav-tool && source .venv-test/bin/activate && pytest tests/ --cov=main --c
 - `DEFAULT_MODELS=gpt-4o-mini` in docker-compose.yml forces cheap model
 - **All API calls go through LiteLLM** which has caching enabled (saves $$)
 
-**Current model pricing (Oct 2025, per 1M tokens - VERIFIED Oct 14, 2025):**
+**Current model pricing (Oct 2025, per 1M tokens - VERIFIED Oct 16, 2025):**
 
 | Model | Input | Output | Use Case | Notes |
 |-------|-------|--------|----------|-------|
@@ -434,22 +434,32 @@ cd caldav-tool && source .venv-test/bin/activate && pytest tests/ --cov=main --c
 | **claude-sonnet-4-5** | $3.00 | $15.00 | Best for coding (Sept 2025) | Latest flagship |
 | claude-3-5-sonnet | $3.00 | $15.00 | Previous flagship | Still excellent |
 | claude-3-5-haiku | $1.00 | $5.00 | Fast, cheap Claude | Good for simple tasks |
-| **llama-3.3-70b** | $0.59 | $0.79 | Groq - very fast, cheap | Best Groq option |
-| llama-3.1-8b | $0.05 | $0.08 | Groq - fastest, cheapest | Simple tasks |
+| **llama-3.3-70b** | $0.59 | $0.79 | Groq - very fast, cheap | Good quality, 131k context |
+| **llama-3.1-8b** | $0.05 | $0.08 | Groq - fastest, cheapest | Simple tasks, 131k context |
+| **gpt-oss-20b** 🆕 | $0.10 | $0.50 | Groq - 1000 tok/s, reasoning | 131k context, fastest Groq |
+| **gpt-oss-120b** 🆕 | $0.15 | $0.75 | Groq - 500 tok/s, high quality | 131k context |
+| **kimi-k2** 🆕 | ~$0.10 | ~$0.50 | Groq - HUGE 262k context | Best for long docs/code review |
+| **groq-compound** 🆕 | ~$0.15 | ~$0.75 | Groq - web search + code exec | 131k, built-in tools |
+| **qwen3-32b** 🆕 | ~$0.10 | ~$0.50 | Groq - multilingual (Chinese) | 131k, Alibaba Cloud |
 | **gemini-2.5-pro** | $1.25 | $10.00 | Reasoning model (needs 100-300 tokens) | ⚠️ Price increased Jun 2025 |
 | **gemini-2.5-flash** | $0.30 | $2.50 | Reasoning model (needs 50-200 tokens) | ⚠️ Price increased Jun 2025 |
 | gemini-2.0-flash | $0.10 | $0.40 | Standard model (normal token usage) | Good budget choice |
 
 **Cost estimates (50k in, 10k out per session):**
 - llama-3.1-8b (Groq): ~$0.003 (CHEAPEST)
-- gpt-4o-mini: ~$0.014 (BEST BUDGET BALANCE)
+- gpt-oss-20b (Groq): ~$0.010 (fast, reasoning)
+- kimi-k2 (Groq): ~$0.010 (262k context)
 - gemini-2.0-flash: ~$0.009 (good Google option)
+- gpt-4o-mini: ~$0.014 (BEST BUDGET BALANCE)
+- gpt-oss-120b (Groq): ~$0.015 (high quality)
 - gpt-4.1-mini: ~$0.036 (1M context, pricier than 4o-mini)
-- gemini-2.5-flash: ~$0.040 (reasoning model, expensive!)
 - llama-3.3-70b (Groq): ~$0.037
+- gemini-2.5-flash: ~$0.040 (reasoning model, expensive!)
 
 **Budget planning:**
-- $30/month with gpt-4o-mini = ~2100 sessions = 70/day
+- $30/month with llama-3.1-8b = ~10,000 sessions = 333/day (CHEAPEST)
+- $30/month with gpt-oss-20b = ~3,000 sessions = 100/day (fast Groq)
+- $30/month with gpt-4o-mini = ~2,100 sessions = 70/day (BEST BALANCE)
 - $30/month with gpt-4.1-mini = ~830 sessions = 27/day
 - $30/month with gemini-2.5-flash = ~750 sessions = 25/day
 
@@ -473,11 +483,15 @@ cd caldav-tool && source .venv-test/bin/activate && pytest tests/ --cov=main --c
 
 **Recommendations (Oct 2025):**
 - **DEFAULT: gpt-4o-mini** - Best balance of quality/cost ($0.014/session)
-- **CHEAPEST: llama-3.1-8b (Groq)** - For simple tasks ($0.003/session, 5x cheaper)
+- **CHEAPEST: llama-3.1-8b (Groq)** - For simple tasks ($0.003/session, 5x cheaper than 4o-mini)
+- **FAST & CHEAP: gpt-oss-20b (Groq)** - 1000 tok/s, reasoning support ($0.010/session)
+- **LONG CONTEXT: kimi-k2 (Groq)** - 262k context for big documents ($0.010/session)
+- **RESEARCH: groq-compound** - Built-in web search + code exec ($0.015/session)
 - **BUDGET GOOGLE: gemini-2.0-flash** - NOT 2.5-flash! ($0.009/session vs $0.040)
 - **AVOID gpt-4.1-mini for budget** - 2.6x more expensive than gpt-4o-mini despite "mini" name
 - **AVOID gemini-2.5 models for budget** - Reasoning models are expensive, use 2.0-flash instead
 - Use gpt-4o, claude-sonnet-4-5 only for complex tasks (premium pricing)
+- **NEW: Groq now has 7 models** - all with 131k+ context, very fast, very cheap
 - LiteLLM caching saves 50-80% on repeated queries
 - Monitor usage weekly via provider dashboards
 
@@ -602,7 +616,7 @@ docker exec openwebui curl http://caldav-tool:8000/
 
 ## Testing & CI/CD
 
-**Integration test script**: `./test-gtd-stack.sh`
+**Integration test script**: `./scripts/test-gtd-stack.sh`
 - Tests all 9 critical areas: containers, tool endpoints, API connectivity, file operations, git, config validation, web interface, model availability, pricing
 - Run before major changes or after stack updates
 - Returns exit code 0 if all critical tests pass
