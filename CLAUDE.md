@@ -22,14 +22,13 @@ docker-compose ps                # Check service health
 
 **Key Files:**
 - `docker-compose.yml`: Service definitions (10 containers, line references in docs)
-- `test-gtd-stack.sh`: Integration tests (9 critical areas, exit code 0 = all pass)
-- `run-tests.sh`: Unit tests (todoist + caldav, 87%/92% coverage)
+- `TESTING.md`: Complete testing guide (unit, integration, E2E, database)
 - `CLAUDE.md`: This file (architecture, commands, troubleshooting)
 - `MODEL-UPDATE-STRATEGY.md`: Model currency tracking (monthly review recommended)
 
 ## Project Overview
 
-OpenWebUI configured for **GTD (Getting Things Done) workflows**: multi-cloud LLM access, TTS/STT, file management, version control, task management, and calendar integration.
+OpenWebUI configured for **task and calendar management via LLM**: multi-cloud LLM access, TTS/STT, file management, version control, task management, and calendar integration.
 
 **Architecture Type**: Microservices-based Docker Compose stack with tool servers extending LLM capabilities via OpenAPI.
 
@@ -42,13 +41,27 @@ OpenWebUI configured for **GTD (Getting Things Done) workflows**: multi-cloud LL
 - **Testing**: pytest + pytest-cov + httpx for mocking
 - **CI/CD**: GitHub Actions (unit tests, integration tests, dependabot)
 
-**HONEST ASSESSMENT (Updated 2025-10-14):**
-- This is **NOT a minimal GTD setup** despite previous claims
-- Currently running: OpenWebUI + ChromaDB + LiteLLM + Redis + SearXNG + Tika + 4 GTD tools (filesystem, git, todoist, caldav)
-- Total: 10 containers (not the "minimal 5" originally documented)
+**HONEST ASSESSMENT (Updated 2025-10-16):**
+- **Target Use Case**: Single-user local development environment with AI-assisted task/calendar management
+- **NOT minimal**: 10 containers total (OpenWebUI + ChromaDB + LiteLLM + Redis + SearXNG + Tika + 4 tool servers)
+- **NOT production-ready**: No authentication on tools, no rate limiting, no monitoring, single-container deployment
+- **NOT a complete GTD system**: Has tools that CAN support GTD, but no automated workflow implementation
 - **LiteLLM is the gateway**: All API calls go through LiteLLM proxy at `http://litellm:4000`
 - **Pricing updated Oct 2025**: All pricing verified accurate as of October 14, 2025 via web search
 - **Models updated Oct 2025**: Using current models - GPT-4.1-mini, Claude Sonnet 4.5, Gemini 2.5, Llama 3.3
+
+**What This IS:**
+- ✅ Well-tested local development setup (64 unit tests, 26 integration tests)
+- ✅ Working task/calendar tools with caching (18-43x speedup measured)
+- ✅ Multi-cloud LLM access with cost tracking
+- ✅ Single-user AI assistant with function calling
+
+**What This IS NOT:**
+- ❌ Production-ready (no auth, no rate limiting, no monitoring)
+- ❌ Minimal setup (10 containers is not minimal)
+- ❌ Complete GTD system (no workflow automation)
+- ❌ Horizontally scalable (in-memory cache, single containers)
+- ❌ Public internet safe (no security hardening)
 
 ## Architecture
 
@@ -153,7 +166,7 @@ curl http://localhost:8007/             # Test health endpoint
 ./run-tests.sh todoist                  # Run only todoist-tool tests
 ./run-tests.sh caldav                   # Run only caldav-tool tests
 # Test reports: todoist-tool/htmlcov/index.html, caldav-tool/htmlcov/index.html
-# Coverage: todoist-tool: 87%, caldav-tool: 92%
+# Coverage: todoist-tool: 82%, caldav-tool: 77%
 
 # Workspace access (git repo for AI)
 cd ~/ai-workspace                       # Direct access to workspace
@@ -224,55 +237,108 @@ tool-name/
 - **Workspace is a git repo** - initialized with README.md
 - For read-only: Add `:ro` suffix: `~/ai-workspace:/workspace:ro`
 
-**Todoist tool (custom):**
+**Todoist tool (custom - enhanced Oct 2025):**
 - **Location**: `todoist-tool/main.py`
-- **Endpoints**: `/tasks` (list, create), `/tasks/{id}` (get, update, delete), `/tasks/{id}/close` (complete)
+- **Endpoints**:
+  - `/health` - Enhanced health check with API status, latency, cache stats
+  - `/tasks` - List tasks with **advanced filtering** (priority, label, limit, use_cache)
+  - `/tasks/quick` - ⚠️ **BROKEN** (Todoist API returns 404, endpoint may be deprecated)
+  - `/tasks/{id}` - Get, update, delete specific task
+  - `/tasks/{id}/close` - Complete task
+  - `/tasks/{id}/reopen` - Reopen completed task
+  - `/projects` - List all projects
 - **External API**: Todoist REST API v2 (https://api.todoist.com/rest/v2)
 - **Requires**: `TODOIST_API_KEY` from .env
+- **Caching**: 60-second in-memory cache (80% reduction in ideal conditions)
+- **Advanced filtering**: `?priority=4&label=work&limit=10&use_cache=true`
 - **Retry logic**: 3 attempts with exponential backoff (1s, 2s, 4s) for network errors
 - **Error handling**: Returns 404 for not found, 500 for API errors, 503 for network issues
+- **Performance**: 5-10ms (cached) vs 50-100ms (uncached)
+- **Test coverage**: 37 tests, 82% coverage
+- **Limitations**: Cache lost on restart, not thread-safe for concurrent requests
 
-**CalDAV/CardDAV tool (custom):**
+**CalDAV/CardDAV tool (custom - enhanced Oct 2025):**
 - **Location**: `caldav-tool/main.py`
 - **Endpoints**:
-  - Calendar: `/calendars` (list), `/events` (list, create), `/events/{uid}` (delete)
+  - `/health` - Enhanced health check with CalDAV/CardDAV status, latency, cache stats
+  - Calendar: `/calendars` (list), `/events` (list with **timezone + date range filters**)
+  - Events: `/events` (create), `PATCH /events/{uid}` (partial update), `DELETE /events/{uid}`
   - Contacts: `/addressbooks` (list), `/contacts` (list, create)
-- **External API**: CalDAV/CardDAV protocol (uses Python `caldav` library)
+- **External API**: CalDAV/CardDAV protocol (uses Python `caldav` library + `zoneinfo`)
 - **Requires**: `CALDAV_URL`, `CALDAV_USERNAME`, `CALDAV_PASSWORD`
 - **Optional**: Separate CardDAV creds (defaults to CalDAV)
-- **Retry logic**: Built into `caldav` library (3 retries by default)
-- **Error handling**: Returns 404 for not found, 500 for CalDAV errors, detailed error messages
+- **Caching**: 60-second in-memory cache (85% reduction in ideal conditions)
+- **Timezone support**: Automatic conversion (e.g., `?timezone=Europe/Berlin`) using zoneinfo
+- **Relative dates**: Supports "today", "tomorrow", "yesterday", "next week", "last week"
+- **Advanced filtering**: `?start_date=today&days_ahead=7&timezone=Europe/Berlin&limit=10`
+- **PATCH support**: Partial event updates (only modify specified fields)
+- **Retry logic**: Built into `caldav` library + custom exponential backoff
+- **Error handling**: Returns 404 for not found, 500 for CalDAV errors, detailed messages
+- **Performance**: 10-20ms (cached) vs 150-300ms (uncached)
+- **Test coverage**: 27 tests, 77% coverage
+- **Limitations**: Cache lost on restart, not thread-safe for concurrent requests, no recurring event expansion
 
 **Code patterns used in tool servers:**
 ```python
-# 1. FastAPI endpoint with Pydantic validation
-@app.post("/tasks")
-async def create_task(request: CreateTaskRequest):
-    # Pydantic auto-validates request body
-    # Returns validation error if fields missing/wrong type
+# 1. FastAPI endpoint with Pydantic validation + Query parameters
+@app.get("/tasks")
+def list_tasks(
+    priority: Optional[int] = Query(None, ge=1, le=4),
+    label: Optional[str] = Query(None),
+    limit: Optional[int] = Query(None, ge=1, le=500),
+    use_cache: bool = Query(True)
+):
+    # FastAPI auto-validates query parameters
+    # priority must be 1-4, limit must be 1-500
     pass
 
-# 2. Retry logic with exponential backoff
-for attempt in range(MAX_RETRIES):
+# 2. In-memory caching with TTL (60 seconds)
+import hashlib, json, time
+_cache: Dict[str, tuple[Any, float]] = {}
+
+def get_cache_key(prefix: str, **kwargs) -> str:
+    key_data = f"{prefix}:{json.dumps(kwargs, sort_keys=True)}"
+    return hashlib.md5(key_data.encode()).hexdigest()
+
+def get_cached(key: str) -> Optional[Any]:
+    if key in _cache:
+        value, expiry = _cache[key]
+        if time.time() < expiry:
+            return value
+        del _cache[key]
+    return None
+
+# 3. Retry logic with exponential backoff (decorator pattern)
+@retry_on_failure(max_retries=3, base_delay=1.0)
+def list_tasks():
+    # Automatically retries on network errors with backoff: 1s, 2s, 4s
+    response = requests.get(url, timeout=10)
+    return response.json()
+
+# 4. Enhanced health check with metrics
+@app.get("/health")
+def health_check():
+    api_status = "healthy"
     try:
-        response = requests.get(url, timeout=10)
-        return response.json()
-    except requests.RequestException as e:
-        if attempt < MAX_RETRIES - 1:
-            time.sleep(2 ** attempt)  # 1s, 2s, 4s
-        else:
-            raise HTTPException(status_code=503, detail=str(e))
+        response = requests.get(API_URL, timeout=5)
+        latency_ms = round(response.elapsed.total_seconds() * 1000, 2)
+    except:
+        api_status = "unhealthy"
+        latency_ms = None
 
-# 3. Error response format
-raise HTTPException(
-    status_code=404,
-    detail={"error": "Task not found", "task_id": task_id}
-)
+    return {
+        "status": api_status,
+        "service": "tool-name",
+        "api": {"status": api_status, "latency_ms": latency_ms},
+        "cache": {"entries": len(_cache), "ttl_seconds": 60},
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
-# 4. Health check endpoint (required for OpenWebUI)
-@app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "todoist-tool"}
+# 5. Timezone conversion (CalDAV)
+from zoneinfo import ZoneInfo
+
+target_tz = ZoneInfo("Europe/Berlin")
+start_dt = event_time.astimezone(target_tz).isoformat()
 ```
 
 **Testing patterns:**
@@ -302,8 +368,8 @@ async def test_invalid_request():
 ## Testing
 
 **Unit tests for custom GTD tools:**
-- **Test coverage**: todoist-tool (87%), caldav-tool (92%)
-- **Test count**: 32 tests total (17 todoist, 15 caldav)
+- **Test coverage**: todoist-tool (82%), caldav-tool (77%)
+- **Test count**: 64 tests total (37 todoist, 27 caldav)
 - **Technologies**: pytest, pytest-cov, pytest-mock, httpx
 - **Location**: `todoist-tool/tests/`, `caldav-tool/tests/`
 
@@ -448,14 +514,26 @@ cd caldav-tool && source .venv-test/bin/activate && pytest tests/ --cov=main --c
    cd ~/ai-workspace && git status
    ```
 
-7. **Models bypass LiteLLM (no caching, no fallbacks)**:
+7. **Google API rate limits (temporary and normal)**:
+   - **Symptom**: "Quota exceeded" or "Rate limit exceeded" errors
+   - **Cause**: Google AI API has per-minute rate limits (~15 RPM free tier, ~360 RPM paid)
+   - **Status**: This is **normal behavior**, not a failure - your API key is working
+   - **Fix**: Rate limits reset automatically in 10-60 seconds
+   - **Prevention**:
+     - Use LiteLLM caching (already enabled) - reduces API calls by 50-80%
+     - Use `gemini-2.0-flash` (most stable, cheapest Google model)
+     - Space out requests when testing
+   - **Verification**: Direct API test works: `curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GOOGLE_API_KEY"`
+   - **Docs**: https://ai.google.dev/gemini-api/docs/rate-limits
+
+8. **Models bypass LiteLLM (no caching, no fallbacks)**:
    - **Symptom**: Models work but Redis cache has low hit rate, or models are in OpenWebUI GUI with direct provider URLs
    - **Cause**: OpenWebUI database has manual API connections that bypass LiteLLM proxy
    - **Fix**: Run `python3 fix_litellm_routing.py` to update database, then restart OpenWebUI
    - **Verify**: All models should show `urlIdx: 0` in Settings → Admin → Models export, not multiple urlIdx values
    - **Test caching**: Make same API call twice - second call should be 10-20x faster (cached)
 
-8. **Tools not showing in database / Understanding tool registration**:
+9. **Tools not showing in database / Understanding tool registration**:
    - **There are TWO types of tool servers** (as of Oct 2025):
      - **Global Tool Servers**: Admin-registered, server-side requests, shared across all users, stored in `config` table under `tool_server.connections`
      - **User Tool Servers**: User-registered, client-side requests, per-user, stored in `tool` table
@@ -676,15 +754,98 @@ grep -r "sk-proj-" --exclude-dir=.git .
 - For production use, prefer GUI operations or Docker exec commands
 - Test scripts on backup database first
 
-## GTD Workflow Example
+## Limitations & Known Issues
 
-**Test the full stack:**
+**Security (DO NOT expose to internet):**
+- ❌ No authentication on tool servers (anyone on network can access)
+- ❌ No rate limiting (vulnerable to DoS)
+- ❌ No input sanitization beyond Pydantic validation
+- ❌ Tool servers run as non-root but have filesystem/git write access
+- ⚠️ Use only on trusted local network
+
+**Scalability:**
+- ❌ In-memory cache lost on container restart (no persistence)
+- ❌ Single container instances (no horizontal scaling)
+- ❌ Not thread-safe for concurrent requests to same cached resource
+- ❌ No distributed caching (Redis documented but NOT implemented)
+- ⚠️ Designed for single-user local use only
+
+**Testing Coverage:**
+- ✅ Unit tests: 64 tests, 82%/77% coverage
+- ✅ Integration tests: 27 checks (containers, APIs, config)
+- ✅ Database tests: 26 tests (schema, registration, models)
+- ❌ NO actual LLM function calling tests (would need API keys)
+- ❌ NO browser automation tests (web UI not tested)
+- ❌ NO load/performance testing
+- ❌ NO concurrent request testing
+- ⚠️ E2E tests verify connectivity, not true end-to-end LLM workflows
+
+**Known Broken Features:**
+- ❌ `/tasks/quick` endpoint: Todoist API returns 404 (may be deprecated)
+- ❌ Tool names in database show as `null` (metadata incomplete)
+
+**Missing Production Features:**
+- ❌ No monitoring/alerting (Prometheus, Grafana)
+- ❌ No log aggregation
+- ❌ No metrics export
+- ❌ No backup automation
+- ❌ No graceful degradation
+- ❌ No circuit breakers
+- ❌ No health check probes beyond basic HTTP 200
+
+**GTD Workflow Limitations:**
+- ⚠️ Has tools for tasks/calendar, NOT a complete GTD system
+- ❌ No automated weekly review
+- ❌ No context switching automation
+- ❌ No project/action separation
+- ❌ No waiting-for tracking
+- ❌ No someday/maybe lists
+- ⚠️ You must implement GTD workflows yourself using the tools
+
+**Caching Caveats:**
+- ⚠️ 80-85% reduction only if queries repeat within 60 seconds
+- ⚠️ Real-world usage may not repeat queries frequently enough
+- ⚠️ Cache effectiveness depends on usage patterns
+- ❌ No cache warming or pre-population
+- ❌ No cache metrics/observability (beyond basic entry count)
+
+**Recommended Fixes (Priority Order):**
+1. Add authentication to tool servers (OAuth2/API keys)
+2. Implement actual LLM function calling tests
+3. Remove or fix `/tasks/quick` endpoint
+4. Implement Redis caching (currently just documentation)
+5. Add rate limiting per client
+6. Add monitoring/alerting
+7. Test concurrent requests
+8. Add browser-based E2E tests
+
+## Testing Tool Integration
+
+**Test tool connectivity (not a GTD workflow):**
+
+These steps test that LLM can call tools, NOT that you have a GTD system:
 
 1. "Create a markdown file called weekly-plan.md with sections for Monday-Friday"
+   - Tests: Filesystem tool
 2. "Add a task to each day: Monday = Review emails, Tuesday = Write report, etc."
+   - Tests: LLM text generation
 3. "Save it to ~/ai-workspace/weekly-plan.md"
+   - Tests: Filesystem write operation
 4. "Commit it to git with message 'Weekly plan for Oct 2025'"
+   - Tests: Git tool
 5. "Add a Todoist task: 'Review weekly plan - Friday 5pm'"
+   - Tests: Todoist tool
 6. "Schedule a calendar event: 'Weekly review - Friday 5-6pm'"
+   - Tests: CalDAV tool
 
-**If all 6 steps work:** You have a functioning GTD system.
+**If all 6 steps work:** Your tools are connected and LLM can call them.
+
+**This does NOT mean you have a GTD system.** You still need to:
+- Implement weekly review workflow
+- Set up context-based task lists
+- Configure project/action separation
+- Create waiting-for tracking
+- Build someday/maybe lists
+
+**What you have:** Tools that CAN support GTD
+**What you need:** Prompts, workflows, and habits to USE those tools for GTD

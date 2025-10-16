@@ -1,6 +1,15 @@
-# OpenWebUI Agentic Stack
+# OpenWebUI Task/Calendar Management Stack
 
-**Complete OpenWebUI setup with ChromaDB, tool servers, and cloud LLM support for "agentic" AI workflows**
+**OpenWebUI setup with tool servers for AI-assisted task and calendar management**
+
+**⚠️ HONEST DISCLAIMER:**
+- **Target use case**: Single-user local development
+- **NOT production-ready**: No authentication, rate limiting, or monitoring
+- **NOT minimal**: 10 containers (OpenWebUI + ChromaDB + LiteLLM + Redis + SearXNG + Tika + 4 tool servers)
+- **NOT a complete GTD system**: Has tools that CAN support GTD, but no workflow automation
+- **Security**: Use only on trusted local network, do NOT expose to internet
+
+**📖 Read [HONEST-STATUS.md](HONEST-STATUS.md) for detailed no-BS assessment of what actually works vs what's theoretical.**
 
 ## Why This Setup?
 

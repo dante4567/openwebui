@@ -3,8 +3,9 @@ CalDAV/CardDAV Tool Server for OpenWebUI
 Provides calendar and contact management via CalDAV/CardDAV protocols
 """
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Query, Depends, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, Field
 import caldav
 from caldav.elements import dav
 import vobject
@@ -13,11 +14,25 @@ from requests.auth import HTTPBasicAuth
 import os
 import sys
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 import time
 from functools import wraps
+from zoneinfo import ZoneInfo
+import hashlib
+import json
+import threading
+
+# Redis import (optional, graceful fallback)
+try:
+    from redis import Redis
+    from redis.exceptions import RedisError
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    Redis = None
+    RedisError = Exception
 
 # Configure structured logging
 logging.basicConfig(
@@ -116,11 +131,169 @@ logger.info("CalDAV tool initialized", extra={
     "username": CALDAV_USERNAME
 })
 
+# API Key authentication
+TOOL_API_KEY = os.getenv("TOOL_API_KEY")
+security = HTTPBearer(auto_error=False)  # Don't auto-error for backwards compatibility
+
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    """Verify API key authentication (optional if TOOL_API_KEY not set)"""
+    if not TOOL_API_KEY:
+        # No auth required if TOOL_API_KEY not configured
+        return None
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing authentication credentials"
+        )
+
+    if credentials.credentials != TOOL_API_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid authentication credentials"
+        )
+
+    return credentials.credentials
+
+# Cache configuration
+CACHE_TYPE = os.getenv("CACHE_TYPE", "memory")  # "memory" or "redis"
+CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
+
+# In-memory cache (fallback or default)
+_memory_cache: Dict[str, tuple[Any, float]] = {}
+_cache_lock = threading.Lock()  # Thread-safe cache access
+
+# Redis cache (optional)
+_redis_client: Optional[Redis] = None
+
+
+def get_redis_client() -> Optional[Redis]:
+    """Initialize Redis client (lazy initialization)"""
+    global _redis_client
+    if _redis_client is None and CACHE_TYPE == "redis" and REDIS_AVAILABLE:
+        try:
+            _redis_client = Redis(
+                host=os.getenv("REDIS_HOST", "redis"),
+                port=int(os.getenv("REDIS_PORT", "6379")),
+                db=int(os.getenv("REDIS_DB", "2")),  # DB 2 for caldav
+                decode_responses=True,
+                socket_connect_timeout=2,
+                socket_timeout=2
+            )
+            # Test connection
+            _redis_client.ping()
+            logger.info(f"Redis connected: {_redis_client.info('server')['redis_version']}")
+        except (RedisError, Exception) as e:
+            logger.error(f"Redis connection failed: {e}, falling back to memory cache")
+            _redis_client = None
+    return _redis_client
+
+
+def get_cache_key(prefix: str, **kwargs) -> str:
+    """Generate cache key from prefix and parameters"""
+    key_data = f"{prefix}:{json.dumps(kwargs, sort_keys=True)}"
+    return hashlib.md5(key_data.encode()).hexdigest()
+
+
+def get_cached(key: str) -> Optional[Any]:
+    """Get value from cache (Redis or memory, thread-safe)"""
+    # Try Redis first if enabled
+    if CACHE_TYPE == "redis" and REDIS_AVAILABLE:
+        redis = get_redis_client()
+        if redis:
+            try:
+                value = redis.get(key)
+                if value:
+                    logger.debug("Redis cache hit", extra={"key": key})
+                    return json.loads(value)
+                logger.debug("Redis cache miss", extra={"key": key})
+                return None
+            except (RedisError, Exception) as e:
+                logger.warning(f"Redis get failed: {e}, trying memory cache")
+                # Fall through to memory cache
+
+    # Memory cache (fallback or default) - thread-safe
+    with _cache_lock:
+        if key in _memory_cache:
+            value, expiry = _memory_cache[key]
+            if time.time() < expiry:
+                logger.debug("Memory cache hit", extra={"key": key})
+                return value
+            else:
+                logger.debug("Memory cache expired", extra={"key": key})
+                del _memory_cache[key]
+    return None
+
+
+def set_cached(key: str, value: Any, ttl: int = CACHE_TTL):
+    """Set value in cache (Redis or memory, thread-safe)"""
+    # Try Redis first if enabled
+    if CACHE_TYPE == "redis" and REDIS_AVAILABLE:
+        redis = get_redis_client()
+        if redis:
+            try:
+                redis.setex(key, ttl, json.dumps(value))
+                logger.debug("Redis cache set", extra={"key": key, "ttl": ttl})
+                return
+            except (RedisError, Exception) as e:
+                logger.warning(f"Redis set failed: {e}, using memory cache")
+                # Fall through to memory cache
+
+    # Memory cache (fallback or default) - thread-safe
+    with _cache_lock:
+        expiry = time.time() + ttl
+        _memory_cache[key] = (value, expiry)
+        logger.debug("Memory cache set", extra={"key": key, "ttl": ttl})
+
+
+def get_cache_stats() -> dict:
+    """Get cache statistics"""
+    if CACHE_TYPE == "redis" and REDIS_AVAILABLE:
+        redis = get_redis_client()
+        if redis:
+            try:
+                info = redis.info("stats")
+                return {
+                    "type": "redis",
+                    "keys": redis.dbsize(),
+                    "hits": info.get("keyspace_hits", 0),
+                    "misses": info.get("keyspace_misses", 0),
+                    "hit_rate": round(
+                        info.get("keyspace_hits", 0) /
+                        max(1, info.get("keyspace_hits", 0) + info.get("keyspace_misses", 0)) * 100,
+                        2
+                    ) if (info.get("keyspace_hits", 0) + info.get("keyspace_misses", 0)) > 0 else 0,
+                    "ttl_seconds": CACHE_TTL
+                }
+            except (RedisError, Exception):
+                pass
+
+    # Memory cache stats - thread-safe
+    with _cache_lock:
+        return {
+            "type": "memory",
+            "entries": len(_memory_cache),
+            "ttl_seconds": CACHE_TTL
+        }
+
 
 class Event(BaseModel):
     summary: str
     start: str  # ISO 8601 format
     end: str  # ISO 8601 format
+    description: Optional[str] = None
+    location: Optional[str] = None
+    timezone: Optional[str] = Field(
+        default="UTC",
+        description="Timezone for event display (e.g., 'Europe/Berlin', 'America/New_York')"
+    )
+
+
+class EventUpdate(BaseModel):
+    summary: Optional[str] = None
+    start: Optional[str] = None
+    end: Optional[str] = None
     description: Optional[str] = None
     location: Optional[str] = None
 
@@ -130,6 +303,12 @@ class Contact(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     organization: Optional[str] = None
+
+
+class Calendar(BaseModel):
+    name: str = Field(..., description="Calendar ID/name (e.g., 'work', 'personal')")
+    displayname: Optional[str] = Field(None, description="Display name for the calendar")
+    description: Optional[str] = Field(None, description="Calendar description")
 
 
 def get_caldav_client():
@@ -165,13 +344,65 @@ def root():
     return {"status": "healthy", "service": "caldav-tool"}
 
 
+@app.get("/health")
+def health_check():
+    """
+    Enhanced health check with CalDAV connectivity test
+    Returns cache statistics and basic metrics
+    """
+    start_time = time.time()
+
+    # Test CalDAV connectivity
+    caldav_status = "unknown"
+    caldav_latency_ms = None
+    calendar_count = 0
+
+    try:
+        client = get_caldav_client()
+        principal = client.principal()
+        calendars = principal.calendars()
+        calendar_count = len(calendars)
+        caldav_status = "healthy"
+        caldav_latency_ms = round((time.time() - start_time) * 1000, 2)
+    except Exception as e:
+        caldav_status = "unhealthy"
+        logger.error("Health check failed", extra={"error": str(e)})
+
+    # Test CardDAV connectivity (optional)
+    carddav_status = "unknown"
+    try:
+        url = get_addressbook_url()
+        auth = get_carddav_auth()
+        response = requests.get(url, auth=auth, timeout=5)
+        carddav_status = "healthy" if response.status_code in [200, 207] else "degraded"
+    except:
+        carddav_status = "degraded"
+
+    return {
+        "status": caldav_status,
+        "service": "caldav-tool",
+        "caldav": {
+            "status": caldav_status,
+            "latency_ms": caldav_latency_ms,
+            "calendar_count": calendar_count,
+            "url": CALDAV_URL
+        },
+        "carddav": {
+            "status": carddav_status,
+            "url": CARDDAV_URL
+        },
+        "cache": get_cache_stats(),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
 # ============================================================================
 # CALENDAR OPERATIONS (CalDAV)
 # ============================================================================
 
 @app.get("/calendars")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def list_calendars():
+def list_calendars(token: str = Depends(verify_token)):
     """List all available calendars"""
     start_time = time.time()
     logger.info("Fetching calendars")
@@ -199,6 +430,77 @@ def list_calendars():
 
     except Exception as e:
         logger.error("Failed to fetch calendars", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
+
+
+@app.post("/calendars")
+@retry_on_failure(max_retries=3, base_delay=1.0)
+def create_calendar(calendar: Calendar, token: str = Depends(verify_token)):
+    """
+    Create a new calendar
+
+    Args:
+        calendar: Calendar details (name, displayname, description)
+
+    Returns:
+        Dictionary with calendar details including URL and ID
+    """
+    start_time = time.time()
+    logger.info("Creating calendar", extra={
+        "calendar_name": calendar.name,
+        "calendar_displayname": calendar.displayname
+    })
+
+    try:
+        client = get_caldav_client()
+        principal = client.principal()
+
+        # Use displayname if provided, otherwise use name
+        display = calendar.displayname if calendar.displayname else calendar.name
+
+        # Create the calendar
+        new_calendar = principal.make_calendar(
+            name=calendar.name,
+            cal_id=calendar.name,
+            supported_calendar_component_set=['VEVENT']
+        )
+
+        # Set displayname and description if caldav library supports it
+        # Note: Some CalDAV servers may not support all properties
+        try:
+            if calendar.displayname:
+                new_calendar.set_properties([dav.DisplayName(calendar.displayname)])
+            if calendar.description:
+                # Description property varies by server implementation
+                pass
+        except Exception as prop_error:
+            logger.warning("Could not set all calendar properties", extra={
+                "error": str(prop_error)
+            })
+
+        latency = time.time() - start_time
+        result = {
+            "status": "success",
+            "message": "Calendar created",
+            "name": calendar.name,
+            "displayname": display,
+            "url": str(new_calendar.url),
+            "id": new_calendar.id if hasattr(new_calendar, 'id') else calendar.name
+        }
+
+        logger.info("Calendar created successfully", extra={
+            "calendar_name": calendar.name,
+            "calendar_url": str(new_calendar.url),
+            "latency_ms": round(latency * 1000, 2)
+        })
+
+        return result
+
+    except Exception as e:
+        logger.error("Failed to create calendar", extra={
+            "calendar_name": calendar.name,
+            "error": str(e)
+        })
         raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
 
 
@@ -235,26 +537,62 @@ def parse_relative_date(date_str: str) -> datetime:
 @app.get("/events")
 @retry_on_failure(max_retries=3, base_delay=1.0)
 def list_events(
-    calendar_name: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    days_ahead: int = 30
+    calendar_name: Optional[str] = Query(None, description="Specific calendar name"),
+    start_date: Optional[str] = Query(None, description="Start date (ISO format or 'today', 'tomorrow', etc.)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO format or relative)"),
+    days_ahead: int = Query(30, ge=1, le=365, description="Days to look ahead from start_date"),
+    timezone: Optional[str] = Query("UTC", description="Timezone for event display (e.g., 'Europe/Berlin')"),
+    use_cache: bool = Query(True, description="Use cached results if available"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Limit number of results"),
+    token: str = Depends(verify_token)
 ):
     """
-    List events from calendar
+    List events from calendar with enhanced filtering
 
     Args:
         calendar_name: Specific calendar name (default: first calendar)
         start_date: Start date in ISO format (YYYY-MM-DD) or relative ('today', 'tomorrow', 'yesterday', 'next week', 'last week'). Default: today
         end_date: End date in ISO format (YYYY-MM-DD) or relative. Default: 30 days from start_date
         days_ahead: Number of days to look ahead (if end_date not specified). Default: 30
+        timezone: Timezone to convert event times (default: UTC)
+        use_cache: Whether to use cached results (default: true)
+        limit: Maximum number of events to return
+
+    Examples:
+        - /events?start_date=today&days_ahead=7 - Next 7 days
+        - /events?start_date=tomorrow&timezone=Europe/Berlin - Tomorrow in Berlin time
+        - /events?calendar_name=Work&limit=10 - Next 10 work events
     """
     start_time = time.time()
+
+    # Check cache first
+    cache_key = get_cache_key(
+        "events",
+        calendar_name=calendar_name,
+        start_date=start_date,
+        end_date=end_date,
+        days_ahead=days_ahead,
+        timezone=timezone,
+        limit=limit
+    )
+
+    if use_cache:
+        cached = get_cached(cache_key)
+        if cached is not None:
+            logger.info("Returning cached events", extra={
+                "event_count": len(cached),
+                "cache_hit": True
+            })
+            return cached
+
     logger.info("Fetching events", extra={
         "calendar_name": calendar_name,
         "start_date": start_date,
         "end_date": end_date,
-        "days_ahead": days_ahead
+        "days_ahead": days_ahead,
+        "timezone": timezone,
+        "limit": limit,
+        "cache_hit": False
     })
 
     try:
@@ -285,18 +623,54 @@ def list_events(
         # Fetch events
         events = calendar.date_search(start=start, end=end)
 
+        # Parse target timezone
+        try:
+            target_tz = ZoneInfo(timezone) if timezone else ZoneInfo("UTC")
+        except Exception:
+            logger.warning(f"Invalid timezone '{timezone}', defaulting to UTC")
+            target_tz = ZoneInfo("UTC")
+
         results = []
         for event in events:
             try:
                 vcal = vobject.readOne(event.data)
                 vevent = vcal.vevent
+
+                # Parse start/end times with timezone conversion
+                start_dt = None
+                end_dt = None
+
+                if hasattr(vevent, 'dtstart'):
+                    start_val = vevent.dtstart.value
+                    if isinstance(start_val, datetime):
+                        # Convert to target timezone if datetime has timezone info
+                        if start_val.tzinfo is not None:
+                            start_dt = start_val.astimezone(target_tz).isoformat()
+                        else:
+                            # Assume UTC if no timezone
+                            start_dt = start_val.replace(tzinfo=ZoneInfo("UTC")).astimezone(target_tz).isoformat()
+                    else:
+                        # Date only (no time component)
+                        start_dt = start_val.isoformat()
+
+                if hasattr(vevent, 'dtend'):
+                    end_val = vevent.dtend.value
+                    if isinstance(end_val, datetime):
+                        if end_val.tzinfo is not None:
+                            end_dt = end_val.astimezone(target_tz).isoformat()
+                        else:
+                            end_dt = end_val.replace(tzinfo=ZoneInfo("UTC")).astimezone(target_tz).isoformat()
+                    else:
+                        end_dt = end_val.isoformat()
+
                 results.append({
                     "summary": str(vevent.summary.value) if hasattr(vevent, 'summary') else "No title",
-                    "start": vevent.dtstart.value.isoformat() if hasattr(vevent, 'dtstart') else None,
-                    "end": vevent.dtend.value.isoformat() if hasattr(vevent, 'dtend') else None,
+                    "start": start_dt,
+                    "end": end_dt,
                     "description": str(vevent.description.value) if hasattr(vevent, 'description') else None,
                     "location": str(vevent.location.value) if hasattr(vevent, 'location') else None,
-                    "uid": str(vevent.uid.value) if hasattr(vevent, 'uid') else None
+                    "uid": str(vevent.uid.value) if hasattr(vevent, 'uid') else None,
+                    "timezone": timezone
                 })
             except Exception as e:
                 logger.warning("Skipping malformed event during list", extra={
@@ -305,11 +679,19 @@ def list_events(
                 })
                 continue
 
+        # Apply limit if specified
+        if limit and len(results) > limit:
+            results = results[:limit]
+
+        # Cache the results
+        set_cached(cache_key, results)
+
         latency = time.time() - start_time
         logger.info("Events fetched successfully", extra={
             "event_count": len(results),
             "calendar": calendar.name,
-            "latency_ms": round(latency * 1000, 2)
+            "latency_ms": round(latency * 1000, 2),
+            "timezone": timezone
         })
         return results
 
@@ -322,7 +704,7 @@ def list_events(
 
 @app.post("/events")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def create_event(event: Event, calendar_name: Optional[str] = None):
+def create_event(event: Event, calendar_name: Optional[str] = None, token: str = Depends(verify_token)):
     """
     Create a new calendar event
 
@@ -447,7 +829,7 @@ def create_event(event: Event, calendar_name: Optional[str] = None):
 
 @app.delete("/events/{uid}")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def delete_event(uid: str, calendar_name: Optional[str] = None):
+def delete_event(uid: str, calendar_name: Optional[str] = None, token: str = Depends(verify_token)):
     """
     Delete a calendar event by UID
 
@@ -528,13 +910,136 @@ def delete_event(uid: str, calendar_name: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
 
 
+@app.patch("/events/{uid}")
+@retry_on_failure(max_retries=3, base_delay=1.0)
+def update_event(uid: str, updates: EventUpdate, calendar_name: Optional[str] = None, token: str = Depends(verify_token)):
+    """
+    Update an existing calendar event (partial update)
+
+    Args:
+        uid: Unique identifier of the event
+        updates: Fields to update (only specified fields will be changed)
+        calendar_name: Target calendar (default: search all calendars)
+
+    Examples:
+        - PATCH /events/abc123 {"summary": "Updated title"}
+        - PATCH /events/abc123 {"start": "2025-10-20T14:00:00", "end": "2025-10-20T15:00:00"}
+        - PATCH /events/abc123 {"location": "New location", "description": "Updated description"}
+    """
+    start_time = time.time()
+    logger.info("Updating event", extra={"uid": uid, "updates": updates.dict(exclude_none=True)})
+
+    try:
+        client = get_caldav_client()
+        principal = client.principal()
+        calendars = principal.calendars()
+
+        if not calendars:
+            logger.error("No calendars found")
+            raise HTTPException(status_code=404, detail="No calendars found")
+
+        # Select calendar(s) to search
+        search_calendars = []
+        if calendar_name:
+            calendar = next((c for c in calendars if c.name == calendar_name), None)
+            if not calendar:
+                logger.error("Calendar not found", extra={"calendar_name": calendar_name})
+                raise HTTPException(status_code=404, detail=f"Calendar '{calendar_name}' not found")
+            search_calendars = [calendar]
+        else:
+            search_calendars = calendars
+
+        # Search for event by UID
+        event_found = False
+        for calendar in search_calendars:
+            try:
+                # Search for events in a wide date range
+                start_search = datetime.now() - timedelta(days=365)
+                end_search = datetime.now() + timedelta(days=365)
+                events = calendar.date_search(start=start_search, end=end_search)
+
+                for event in events:
+                    try:
+                        vcal = vobject.readOne(event.data)
+                        if hasattr(vcal.vevent, 'uid') and str(vcal.vevent.uid.value) == uid:
+                            # Found the event, update it
+                            vevent = vcal.vevent
+
+                            # Update fields if provided
+                            if updates.summary is not None:
+                                vevent.summary.value = updates.summary
+
+                            if updates.start is not None:
+                                vevent.dtstart.value = datetime.fromisoformat(updates.start)
+
+                            if updates.end is not None:
+                                vevent.dtend.value = datetime.fromisoformat(updates.end)
+
+                            if updates.description is not None:
+                                if hasattr(vevent, 'description'):
+                                    vevent.description.value = updates.description
+                                else:
+                                    vevent.add('description').value = updates.description
+
+                            if updates.location is not None:
+                                if hasattr(vevent, 'location'):
+                                    vevent.location.value = updates.location
+                                else:
+                                    vevent.add('location').value = updates.location
+
+                            # Update DTSTAMP
+                            if hasattr(vevent, 'dtstamp'):
+                                vevent.dtstamp.value = datetime.now()
+                            else:
+                                vevent.add('dtstamp').value = datetime.now()
+
+                            # Save updated event
+                            event.data = vcal.serialize()
+                            event.save()
+
+                            event_found = True
+                            latency = time.time() - start_time
+                            logger.info("Event updated successfully", extra={
+                                "uid": uid,
+                                "calendar": calendar.name,
+                                "latency_ms": round(latency * 1000, 2)
+                            })
+                            return {
+                                "status": "success",
+                                "message": "Event updated",
+                                "uid": uid,
+                                "latency_ms": round(latency * 1000, 2)
+                            }
+                    except Exception as parse_error:
+                        logger.debug("Skipping event during update search", extra={
+                            "error": str(parse_error)
+                        })
+                        continue
+            except Exception as calendar_error:
+                logger.warning("Error searching calendar", extra={
+                    "calendar": calendar.name,
+                    "error": str(calendar_error)
+                })
+                continue
+
+        if not event_found:
+            logger.error("Event not found", extra={"uid": uid})
+            raise HTTPException(status_code=404, detail=f"Event with UID '{uid}' not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to update event", extra={"error": str(e), "uid": uid})
+        raise HTTPException(status_code=500, detail=f"CalDAV error: {str(e)}")
+
+
 # ============================================================================
 # CONTACT OPERATIONS (CardDAV)
 # ============================================================================
 
 @app.get("/addressbooks")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def list_addressbooks():
+def list_addressbooks(token: str = Depends(verify_token)):
     """List all available addressbooks"""
     start_time = time.time()
     logger.info("Fetching addressbooks")
@@ -607,7 +1112,7 @@ def list_addressbooks():
 
 @app.get("/contacts")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def list_contacts(addressbook_name: Optional[str] = "contacts"):
+def list_contacts(addressbook_name: Optional[str] = "contacts", token: str = Depends(verify_token)):
     """
     List contacts from addressbook
 
@@ -697,7 +1202,7 @@ def list_contacts(addressbook_name: Optional[str] = "contacts"):
 
 @app.post("/contacts")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def create_contact(contact: Contact, addressbook_name: Optional[str] = "contacts"):
+def create_contact(contact: Contact, addressbook_name: Optional[str] = "contacts", token: str = Depends(verify_token)):
     """
     Create a new contact
 

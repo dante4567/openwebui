@@ -2,8 +2,11 @@
 Unit tests for Todoist Tool Server
 
 Tests cover:
-- Health check endpoint
+- Health check endpoints (basic and enhanced)
 - Task CRUD operations
+- Enhanced filtering (priority, label, limit)
+- Caching behavior
+- Quick add endpoint
 - Error handling
 - Retry logic
 - Network failure scenarios
@@ -15,6 +18,7 @@ from unittest.mock import Mock, patch, MagicMock
 import requests
 import sys
 import os
+import time
 
 # Add parent directory to path to import main
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -22,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 # Mock environment variables before importing main
 os.environ["TODOIST_API_KEY"] = "test-api-key"
 
-from main import app, retry_on_failure
+from main import app, retry_on_failure, _memory_cache, get_cache_key, get_cached, set_cached
 
 
 client = TestClient(app)
@@ -36,6 +40,55 @@ class TestHealthEndpoint:
         response = client.get("/")
         assert response.status_code == 200
         assert response.json() == {"status": "healthy", "service": "todoist-tool"}
+
+    @patch("main.requests.get")
+    def test_enhanced_health_check_success(self, mock_get):
+        """Enhanced health check should return detailed status"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert data["service"] == "todoist-tool"
+        assert "todoist_api" in data
+        assert data["todoist_api"]["status"] == "healthy"
+        assert "latency_ms" in data["todoist_api"]
+        assert "cache" in data
+        assert "entries" in data["cache"]
+        assert data["cache"]["ttl_seconds"] == 60
+        assert "timestamp" in data
+
+    @patch("main.requests.get")
+    def test_enhanced_health_check_degraded(self, mock_get):
+        """Enhanced health check should detect degraded API"""
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_get.return_value = mock_response
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "degraded"
+        assert data["todoist_api"]["status"] == "degraded"
+
+    @patch("main.requests.get")
+    def test_enhanced_health_check_api_unreachable(self, mock_get):
+        """Enhanced health check should handle unreachable API"""
+        mock_get.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "unhealthy"
+        assert data["todoist_api"]["status"] == "unhealthy"
+        assert data["todoist_api"]["latency_ms"] is None
 
 
 class TestListTasks:
@@ -73,16 +126,94 @@ class TestListTasks:
         assert call_args[1]["params"]["filter"] == "today"
 
     @patch("main.requests.get")
-    def test_list_tasks_api_error(self, mock_get):
-        """List tasks should handle API errors"""
+    @patch("main.time.sleep")  # Mock sleep to speed up test
+    def test_list_tasks_api_error(self, mock_sleep, mock_get):
+        """List tasks should handle API errors with retry"""
         mock_response = Mock()
         mock_response.status_code = 500
         mock_response.text = "Internal Server Error"
         mock_get.return_value = mock_response
 
-        response = client.get("/tasks")
+        response = client.get("/tasks?use_cache=false")
 
+        # Should retry 3 times (max_retries=3) and still fail
         assert response.status_code == 500
+        assert mock_get.call_count == 4  # 1 initial + 3 retries
+
+    @patch("main.requests.get")
+    def test_list_tasks_with_priority_filter(self, mock_get):
+        """List tasks should filter by priority"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"id": "1", "content": "Urgent task", "priority": 4},
+            {"id": "2", "content": "High task", "priority": 3},
+            {"id": "3", "content": "Normal task", "priority": 1}
+        ]
+        mock_get.return_value = mock_response
+
+        response = client.get("/tasks?priority=4")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["priority"] == 4
+        assert data[0]["content"] == "Urgent task"
+
+    @patch("main.requests.get")
+    def test_list_tasks_with_label_filter(self, mock_get):
+        """List tasks should filter by label"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"id": "1", "content": "Work task", "labels": ["work", "urgent"]},
+            {"id": "2", "content": "Home task", "labels": ["home"]},
+            {"id": "3", "content": "Work task 2", "labels": ["work"]}
+        ]
+        mock_get.return_value = mock_response
+
+        response = client.get("/tasks?label=work")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        assert all("work" in task["labels"] for task in data)
+
+    @patch("main.requests.get")
+    def test_list_tasks_with_limit(self, mock_get):
+        """List tasks should respect limit parameter"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"id": str(i), "content": f"Task {i}"} for i in range(1, 101)
+        ]
+        mock_get.return_value = mock_response
+
+        response = client.get("/tasks?limit=10")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 10
+
+    @patch("main.requests.get")
+    def test_list_tasks_with_combined_filters(self, mock_get):
+        """List tasks should handle combined filters"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"id": "1", "content": "Urgent work", "priority": 4, "labels": ["work"]},
+            {"id": "2", "content": "High work", "priority": 3, "labels": ["work"]},
+            {"id": "3", "content": "Urgent home", "priority": 4, "labels": ["home"]}
+        ]
+        mock_get.return_value = mock_response
+
+        response = client.get("/tasks?priority=4&label=work&limit=5")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["priority"] == 4
+        assert "work" in data[0]["labels"]
 
 
 class TestCreateTask:
@@ -285,14 +416,17 @@ class TestErrorHandling:
     """Tests for error handling"""
 
     @patch("main.requests.get")
-    def test_network_timeout(self, mock_get):
-        """Should handle network timeout gracefully"""
+    @patch("main.time.sleep")  # Mock sleep to speed up test
+    def test_network_timeout(self, mock_sleep, mock_get):
+        """Should handle network timeout gracefully with retry"""
         mock_get.side_effect = requests.exceptions.Timeout("Timeout")
 
-        response = client.get("/tasks")
+        response = client.get("/tasks?use_cache=false")
 
         assert response.status_code == 503
         assert "unreachable" in response.json()["detail"].lower()
+        # Should retry 3 times before giving up
+        assert mock_get.call_count == 4  # 1 initial + 3 retries
 
     @patch("main.requests.post")
     def test_connection_error(self, mock_post):
@@ -303,3 +437,109 @@ class TestErrorHandling:
         response = client.post("/tasks", json=task_data)
 
         assert response.status_code == 503
+
+
+class TestCaching:
+    """Tests for caching functionality"""
+
+    def setup_method(self):
+        """Clear cache before each test"""
+        _memory_cache.clear()
+
+    def test_cache_key_generation(self):
+        """Cache keys should be consistent for same parameters"""
+        key1 = get_cache_key("tasks", priority=4, label="work", limit=10)
+        key2 = get_cache_key("tasks", priority=4, label="work", limit=10)
+        key3 = get_cache_key("tasks", priority=3, label="work", limit=10)
+
+        assert key1 == key2
+        assert key1 != key3
+
+    def test_cache_set_and_get(self):
+        """Should be able to set and get cached values"""
+        test_data = [{"id": "1", "content": "Test task"}]
+        cache_key = "test_key"
+
+        set_cached(cache_key, test_data, ttl=60)
+        cached_data = get_cached(cache_key)
+
+        assert cached_data == test_data
+
+    def test_cache_expiration(self):
+        """Cache should expire after TTL"""
+        test_data = [{"id": "1", "content": "Test task"}]
+        cache_key = "test_key"
+
+        set_cached(cache_key, test_data, ttl=0.1)  # 100ms TTL
+        time.sleep(0.2)  # Wait for expiration
+
+        cached_data = get_cached(cache_key)
+        assert cached_data is None
+
+    def test_cache_miss(self):
+        """Should return None for cache miss"""
+        cached_data = get_cached("nonexistent_key")
+        assert cached_data is None
+
+    @patch("main.requests.get")
+    def test_list_tasks_uses_cache(self, mock_get):
+        """Second request should use cache"""
+        _memory_cache.clear()
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"id": "1", "content": "Cached task"}
+        ]
+        mock_get.return_value = mock_response
+
+        # First request - should hit API
+        response1 = client.get("/tasks?priority=4")
+        assert response1.status_code == 200
+        assert mock_get.call_count == 1
+
+        # Second request - should use cache
+        response2 = client.get("/tasks?priority=4")
+        assert response2.status_code == 200
+        assert response2.json() == response1.json()
+        assert mock_get.call_count == 1  # Still 1, didn't call API again
+
+    @patch("main.requests.get")
+    def test_list_tasks_cache_disabled(self, mock_get):
+        """Should bypass cache when use_cache=false"""
+        _memory_cache.clear()
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"id": "1", "content": "Task"}]
+        mock_get.return_value = mock_response
+
+        # First request with cache disabled
+        client.get("/tasks?use_cache=false")
+        assert mock_get.call_count == 1
+
+        # Second request with cache disabled
+        client.get("/tasks?use_cache=false")
+        assert mock_get.call_count == 2  # Called API again
+
+    @patch("main.requests.get")
+    def test_cache_per_query_parameters(self, mock_get):
+        """Different query parameters should use different cache entries"""
+        _memory_cache.clear()
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"id": "1"}]
+        mock_get.return_value = mock_response
+
+        # Request with priority=4
+        client.get("/tasks?priority=4")
+        assert mock_get.call_count == 1
+
+        # Request with priority=3 (different cache key)
+        client.get("/tasks?priority=3")
+        assert mock_get.call_count == 2
+
+        # Request with priority=4 again (should use cache)
+        client.get("/tasks?priority=4")
+        assert mock_get.call_count == 2  # Didn't increase

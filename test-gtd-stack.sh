@@ -502,7 +502,15 @@ if [ -n "$OPENAI_API_KEY" ] && [ "$OPENAI_API_KEY" != "your-key-here" ]; then
             ((KEYS_WORKING++))
         else
             ERROR=$(echo "$GOOGLE_RESPONSE" | jq -r '.error.message // "unknown error"' 2>/dev/null || echo "connection failed")
-            print_warn "Google API: $ERROR"
+
+            # Check if it's a rate limit (expected and temporary)
+            if echo "$ERROR" | grep -qi "quota exceeded\|rate limit"; then
+                print_pass "Google API key valid (temporarily rate limited - normal behavior)"
+                ((KEYS_WORKING++))
+                echo "       Rate limits reset automatically. For details: https://ai.google.dev/gemini-api/docs/rate-limits"
+            else
+                print_warn "Google API: $ERROR"
+            fi
         fi
     fi
 

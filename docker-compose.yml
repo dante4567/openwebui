@@ -133,29 +133,60 @@ services:
     # OpenWebUI URL: http://git-tool:8000
     # ⚠️  SECURITY: LLM has write access to ~/ai-workspace - keep backups!
 
-  # Memory Tool - Knowledge Graph for persistent LLM memory - DISABLED (not needed for GTD)
-  # memory-tool:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.memory
-  #   container_name: openwebui-memory
-  #   ports:
-  #     - "8004:8000"
-  #   restart: unless-stopped
-  #   networks:
-  #     - openwebui-net
-  #   volumes:
-  #     # Persistent storage for knowledge graph
-  #     - memory-data:/data
-  #   environment:
-  #     - MEMORY_FILE_PATH=/data/memory.json
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #   # OpenWebUI URL: http://memory-tool:8000
-  #   # Stores entities, relations, and observations in a knowledge graph
+  # Memory Tool - Knowledge Graph for persistent LLM memory - ENABLED for GTD reference filing
+  memory-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.memory
+    container_name: openwebui-memory
+    ports:
+      - "8004:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    volumes:
+      # Persistent storage for knowledge graph
+      - memory-data:/data
+    environment:
+      - MEMORY_FILE_PATH=/data/memory.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # OpenWebUI URL: http://memory-tool:8000
+    # Stores entities, relations, and observations in a knowledge graph
+
+  # Summarizer Tool - Text summarization using LiteLLM/OpenAI
+  summarizer-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile.summarizer
+    container_name: openwebui-summarizer
+    ports:
+      - "8009:8000"
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+    env_file:
+      - .env
+    environment:
+      - MODEL=${SUMMARIZER_MODEL:-gpt-4o-mini}
+      - OPENAI_API_BASE=http://litellm:4000/v1
+      - OPENAI_API_KEY=sk-1234  # LiteLLM master key, not real OpenAI key
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    # OpenWebUI URL: http://summarizer-tool:8000
+    # Summarizes text using LiteLLM proxy (gpt-4o-mini by default)
 
   # ===================================================================
   # GTD TOOL SERVERS - Task Management, Calendar, Contacts
@@ -174,6 +205,13 @@ services:
       - openwebui-net
     env_file:
       - .env
+    environment:
+      - CACHE_TYPE=redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=1
+      - CACHE_TTL=60
+      - TOOL_API_KEY=${TOOL_API_KEY:-}
     deploy:
       resources:
         limits:
@@ -202,6 +240,13 @@ services:
       - openwebui-net
     env_file:
       - .env
+    environment:
+      - CACHE_TYPE=redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=2
+      - CACHE_TTL=60
+      - TOOL_API_KEY=${TOOL_API_KEY:-}
     deploy:
       resources:
         limits:

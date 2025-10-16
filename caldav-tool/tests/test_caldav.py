@@ -2,9 +2,12 @@
 Unit tests for CalDAV/CardDAV Tool Server
 
 Tests cover:
-- Health check endpoint
+- Health check endpoints (basic and enhanced)
 - Calendar operations (CalDAV)
 - Event CRUD operations
+- Enhanced filtering (timezone, date range, limit)
+- Event partial updates (PATCH)
+- Caching behavior
 - Contact operations (CardDAV)
 - Error handling
 - Retry logic
@@ -16,6 +19,9 @@ from unittest.mock import Mock, patch, MagicMock
 import requests
 import sys
 import os
+import time
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 # Add parent directory to path to import main
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -25,7 +31,7 @@ os.environ["CALDAV_URL"] = "https://caldav.example.com"
 os.environ["CALDAV_USERNAME"] = "testuser"
 os.environ["CALDAV_PASSWORD"] = "testpass"
 
-from main import app, retry_on_failure
+from main import app, retry_on_failure, _memory_cache, get_cache_key, get_cached, set_cached, parse_relative_date
 
 
 client = TestClient(app)
@@ -39,6 +45,51 @@ class TestHealthEndpoint:
         response = client.get("/")
         assert response.status_code == 200
         assert response.json() == {"status": "healthy", "service": "caldav-tool"}
+
+    @patch("main.caldav.DAVClient")
+    @patch("main.requests.get")
+    def test_enhanced_health_check_success(self, mock_requests_get, mock_dav_client):
+        """Enhanced health check should return detailed status"""
+        # Mock CalDAV client
+        mock_client_instance = Mock()
+        mock_principal = Mock()
+        mock_calendars = [Mock(), Mock()]
+        mock_principal.calendars.return_value = mock_calendars
+        mock_client_instance.principal.return_value = mock_principal
+        mock_dav_client.return_value = mock_client_instance
+
+        # Mock CardDAV request
+        mock_carddav_response = Mock()
+        mock_carddav_response.status_code = 200
+        mock_requests_get.return_value = mock_carddav_response
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert data["service"] == "caldav-tool"
+        assert "caldav" in data
+        assert data["caldav"]["status"] == "healthy"
+        assert data["caldav"]["calendar_count"] == 2
+        assert "latency_ms" in data["caldav"]
+        assert "carddav" in data
+        assert data["carddav"]["status"] == "healthy"
+        assert "cache" in data
+        assert data["cache"]["ttl_seconds"] == 60
+        assert "timestamp" in data
+
+    @patch("main.caldav.DAVClient")
+    def test_enhanced_health_check_caldav_error(self, mock_dav_client):
+        """Enhanced health check should detect CalDAV errors"""
+        mock_dav_client.side_effect = Exception("Connection error")
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "unhealthy"
+        assert data["caldav"]["status"] == "unhealthy"
 
 
 class TestListCalendars:
@@ -153,18 +204,22 @@ class TestCreateEvent:
 
     @patch("main.caldav.DAVClient")
     @patch("main.vobject.iCalendar")
-    def test_create_event_success(self, mock_icalendar, mock_dav_client):
+    @patch("main.time.sleep")  # Mock sleep to speed up test
+    def test_create_event_success(self, mock_sleep, mock_icalendar, mock_dav_client):
         """Create event should save event to calendar"""
         # Mock vCalendar
         mock_cal = Mock()
         mock_vevent = Mock()
         mock_cal.vevent = mock_vevent
+        mock_cal.serialize.return_value = "BEGIN:VCALENDAR..."
         mock_icalendar.return_value = mock_cal
 
         # Mock calendar
         mock_calendar = Mock()
         mock_calendar.name = "Work"
         mock_calendar.save_event = Mock()
+        # Mock date_search for verification (returns empty - that's OK for the test)
+        mock_calendar.date_search = Mock(return_value=[])
 
         mock_principal = Mock()
         mock_principal.calendars.return_value = [mock_calendar]
@@ -333,6 +388,89 @@ class TestCreateContact:
         data = response.json()
         assert data["status"] == "success"
         assert "uid" in data
+
+
+class TestParseRelativeDate:
+    """Tests for relative date parsing"""
+
+    def test_parse_today(self):
+        """Should parse 'today' correctly"""
+        result = parse_relative_date("today")
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        assert result.date() == today.date()
+
+    def test_parse_tomorrow(self):
+        """Should parse 'tomorrow' correctly"""
+        result = parse_relative_date("tomorrow")
+        tomorrow = (datetime.now() + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        assert result.date() == tomorrow.date()
+
+    def test_parse_yesterday(self):
+        """Should parse 'yesterday' correctly"""
+        result = parse_relative_date("yesterday")
+        yesterday = (datetime.now() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        assert result.date() == yesterday.date()
+
+    def test_parse_next_week(self):
+        """Should parse 'next week' correctly"""
+        result = parse_relative_date("next week")
+        next_week = (datetime.now() + timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+        assert result.date() == next_week.date()
+
+    def test_parse_iso_date(self):
+        """Should parse ISO format dates"""
+        result = parse_relative_date("2025-10-20")
+        assert result.year == 2025
+        assert result.month == 10
+        assert result.day == 20
+
+    def test_parse_invalid_date(self):
+        """Should raise error for invalid date"""
+        with pytest.raises(ValueError):
+            parse_relative_date("invalid-date")
+
+
+class TestCaching:
+    """Tests for caching functionality"""
+
+    def setup_method(self):
+        """Clear cache before each test"""
+        _memory_cache.clear()
+
+    def test_cache_key_generation(self):
+        """Cache keys should be consistent for same parameters"""
+        key1 = get_cache_key("events", calendar_name="Work", start_date="today")
+        key2 = get_cache_key("events", calendar_name="Work", start_date="today")
+        key3 = get_cache_key("events", calendar_name="Personal", start_date="today")
+
+        assert key1 == key2
+        assert key1 != key3
+
+    def test_cache_set_and_get(self):
+        """Should be able to set and get cached values"""
+        test_data = [{"summary": "Test event", "start": "2025-10-20T14:00:00"}]
+        cache_key = "test_key"
+
+        set_cached(cache_key, test_data, ttl=60)
+        cached_data = get_cached(cache_key)
+
+        assert cached_data == test_data
+
+    def test_cache_expiration(self):
+        """Cache should expire after TTL"""
+        test_data = [{"summary": "Test event"}]
+        cache_key = "test_key"
+
+        set_cached(cache_key, test_data, ttl=0.1)  # 100ms TTL
+        time.sleep(0.2)  # Wait for expiration
+
+        cached_data = get_cached(cache_key)
+        assert cached_data is None
+
+    def test_cache_miss(self):
+        """Should return None for cache miss"""
+        cached_data = get_cached("nonexistent_key")
+        assert cached_data is None
 
 
 class TestRetryLogic:

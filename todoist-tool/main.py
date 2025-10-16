@@ -3,16 +3,30 @@ Todoist Tool Server for OpenWebUI
 Provides task management capabilities via Todoist API
 """
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Query, Depends, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, Field
 import requests
 import os
 import sys
 import logging
-from typing import Optional, List
-from datetime import datetime
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
 import time
-from functools import wraps
+from functools import wraps, lru_cache
+import hashlib
+import json
+import threading
+
+# Redis import (optional, graceful fallback)
+try:
+    from redis import Redis
+    from redis.exceptions import RedisError
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    Redis = None
+    RedisError = Exception
 
 # Configure structured logging
 logging.basicConfig(
@@ -106,6 +120,152 @@ headers = {
     "Content-Type": "application/json"
 }
 
+# API Key authentication
+TOOL_API_KEY = os.getenv("TOOL_API_KEY")
+security = HTTPBearer(auto_error=False)  # Don't auto-error for backwards compatibility
+
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    """Verify API key authentication (optional if TOOL_API_KEY not set)"""
+    if not TOOL_API_KEY:
+        # No auth required if TOOL_API_KEY not configured
+        return None
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing authentication credentials"
+        )
+
+    if credentials.credentials != TOOL_API_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid authentication credentials"
+        )
+
+    return credentials.credentials
+
+# Cache configuration
+CACHE_TYPE = os.getenv("CACHE_TYPE", "memory")  # "memory" or "redis"
+CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
+
+# In-memory cache (fallback or default)
+_memory_cache: Dict[str, tuple[Any, float]] = {}
+_cache_lock = threading.Lock()  # Thread-safe cache access
+
+# Redis cache (optional)
+_redis_client: Optional[Redis] = None
+
+
+def get_redis_client() -> Optional[Redis]:
+    """Initialize Redis client (lazy initialization)"""
+    global _redis_client
+    if _redis_client is None and CACHE_TYPE == "redis" and REDIS_AVAILABLE:
+        try:
+            _redis_client = Redis(
+                host=os.getenv("REDIS_HOST", "redis"),
+                port=int(os.getenv("REDIS_PORT", "6379")),
+                db=int(os.getenv("REDIS_DB", "1")),
+                decode_responses=True,
+                socket_connect_timeout=2,
+                socket_timeout=2
+            )
+            # Test connection
+            _redis_client.ping()
+            logger.info(f"Redis connected: {_redis_client.info('server')['redis_version']}")
+        except (RedisError, Exception) as e:
+            logger.error(f"Redis connection failed: {e}, falling back to memory cache")
+            _redis_client = None
+    return _redis_client
+
+
+def get_cache_key(prefix: str, **kwargs) -> str:
+    """Generate cache key from prefix and parameters"""
+    key_data = f"{prefix}:{json.dumps(kwargs, sort_keys=True)}"
+    return hashlib.md5(key_data.encode()).hexdigest()
+
+
+def get_cached(key: str) -> Optional[Any]:
+    """Get value from cache (Redis or memory, thread-safe)"""
+    # Try Redis first if enabled
+    if CACHE_TYPE == "redis" and REDIS_AVAILABLE:
+        redis = get_redis_client()
+        if redis:
+            try:
+                value = redis.get(key)
+                if value:
+                    logger.debug("Redis cache hit", extra={"key": key})
+                    return json.loads(value)
+                logger.debug("Redis cache miss", extra={"key": key})
+                return None
+            except (RedisError, Exception) as e:
+                logger.warning(f"Redis get failed: {e}, trying memory cache")
+                # Fall through to memory cache
+
+    # Memory cache (fallback or default) - thread-safe
+    with _cache_lock:
+        if key in _memory_cache:
+            value, expiry = _memory_cache[key]
+            if time.time() < expiry:
+                logger.debug("Memory cache hit", extra={"key": key})
+                return value
+            else:
+                logger.debug("Memory cache expired", extra={"key": key})
+                del _memory_cache[key]
+    return None
+
+
+def set_cached(key: str, value: Any, ttl: int = CACHE_TTL):
+    """Set value in cache (Redis or memory, thread-safe)"""
+    # Try Redis first if enabled
+    if CACHE_TYPE == "redis" and REDIS_AVAILABLE:
+        redis = get_redis_client()
+        if redis:
+            try:
+                redis.setex(key, ttl, json.dumps(value))
+                logger.debug("Redis cache set", extra={"key": key, "ttl": ttl})
+                return
+            except (RedisError, Exception) as e:
+                logger.warning(f"Redis set failed: {e}, using memory cache")
+                # Fall through to memory cache
+
+    # Memory cache (fallback or default) - thread-safe
+    with _cache_lock:
+        expiry = time.time() + ttl
+        _memory_cache[key] = (value, expiry)
+        logger.debug("Memory cache set", extra={"key": key, "ttl": ttl})
+
+
+def get_cache_stats() -> dict:
+    """Get cache statistics"""
+    if CACHE_TYPE == "redis" and REDIS_AVAILABLE:
+        redis = get_redis_client()
+        if redis:
+            try:
+                info = redis.info("stats")
+                return {
+                    "type": "redis",
+                    "keys": redis.dbsize(),
+                    "hits": info.get("keyspace_hits", 0),
+                    "misses": info.get("keyspace_misses", 0),
+                    "hit_rate": round(
+                        info.get("keyspace_hits", 0) /
+                        max(1, info.get("keyspace_hits", 0) + info.get("keyspace_misses", 0)) * 100,
+                        2
+                    ) if (info.get("keyspace_hits", 0) + info.get("keyspace_misses", 0)) > 0 else 0,
+                    "ttl_seconds": CACHE_TTL
+                }
+            except (RedisError, Exception):
+                pass
+
+    # Memory cache stats - thread-safe
+    with _cache_lock:
+        return {
+            "type": "memory",
+            "entries": len(_memory_cache),
+            "ttl_seconds": CACHE_TTL
+        }
+
 
 class Task(BaseModel):
     content: str
@@ -130,24 +290,107 @@ def root():
     return {"status": "healthy", "service": "todoist-tool"}
 
 
+@app.get("/health")
+def health_check():
+    """
+    Enhanced health check with API connectivity test
+    Returns cache statistics and basic metrics
+    """
+    start_time = time.time()
+
+    # Test Todoist API connectivity
+    try:
+        response = requests.get(
+            f"{TODOIST_API_URL}/projects",
+            headers=headers,
+            timeout=5
+        )
+        api_status = "healthy" if response.status_code == 200 else "degraded"
+        api_latency_ms = round((time.time() - start_time) * 1000, 2)
+    except Exception as e:
+        api_status = "unhealthy"
+        api_latency_ms = None
+        logger.error("Health check failed", extra={"error": str(e)})
+
+    return {
+        "status": api_status,
+        "service": "todoist-tool",
+        "todoist_api": {
+            "status": api_status,
+            "latency_ms": api_latency_ms,
+            "url": TODOIST_API_URL
+        },
+        "cache": get_cache_stats(),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
 @app.get("/tasks")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def list_tasks(project_id: Optional[str] = None, filter: Optional[str] = None):
+def list_tasks(
+    project_id: Optional[str] = Query(None, description="Filter by project ID"),
+    label: Optional[str] = Query(None, description="Filter by label name"),
+    filter: Optional[str] = Query(None, description="Todoist filter string (e.g., 'today', 'overdue', '@work')"),
+    priority: Optional[int] = Query(None, ge=1, le=4, description="Filter by priority (1=normal, 2=high, 3=very high, 4=urgent)"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Limit number of results"),
+    token: str = Depends(verify_token),
+    use_cache: bool = Query(True, description="Use cached results if available")
+):
     """
-    List all tasks
+    List tasks with enhanced filtering
 
     Args:
         project_id: Filter by project ID
+        label: Filter by label name
         filter: Todoist filter string (e.g., "today", "overdue", "@work")
+        priority: Filter by priority (1-4, where 4 is most urgent)
+        limit: Maximum number of tasks to return (1-500)
+        use_cache: Whether to use cached results (default: true)
+
+    Returns:
+        List of tasks matching the filters
+
+    Examples:
+        - /tasks?filter=today - Get today's tasks
+        - /tasks?priority=4&limit=10 - Get 10 most urgent tasks
+        - /tasks?label=work&filter=overdue - Get overdue work tasks
     """
     start_time = time.time()
+
+    # Check cache first
+    cache_key = get_cache_key(
+        "tasks",
+        project_id=project_id,
+        label=label,
+        filter=filter,
+        priority=priority,
+        limit=limit
+    )
+
+    if use_cache:
+        cached = get_cached(cache_key)
+        if cached is not None:
+            logger.info("Returning cached tasks", extra={
+                "task_count": len(cached),
+                "cache_hit": True
+            })
+            return cached
+
+    # Build query parameters
     params = {}
     if project_id:
         params["project_id"] = project_id
     if filter:
         params["filter"] = filter
 
-    logger.info("Fetching tasks", extra={"project_id": project_id, "filter": filter})
+    logger.info("Fetching tasks", extra={
+        "project_id": project_id,
+        "label": label,
+        "filter": filter,
+        "priority": priority,
+        "limit": limit,
+        "cache_hit": False
+    })
 
     try:
         response = requests.get(f"{TODOIST_API_URL}/tasks", headers=headers, params=params, timeout=10)
@@ -162,11 +405,28 @@ def list_tasks(project_id: Optional[str] = None, filter: Optional[str] = None):
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
         tasks = response.json()
+
+        # Apply client-side filters (label, priority)
+        filtered_tasks = tasks
+
+        if label:
+            filtered_tasks = [t for t in filtered_tasks if label in t.get("labels", [])]
+
+        if priority:
+            filtered_tasks = [t for t in filtered_tasks if t.get("priority") == priority]
+
+        if limit:
+            filtered_tasks = filtered_tasks[:limit]
+
+        # Cache the results
+        set_cached(cache_key, filtered_tasks)
+
         logger.info("Tasks fetched successfully", extra={
             "task_count": len(tasks),
+            "filtered_count": len(filtered_tasks),
             "latency_ms": round(latency * 1000, 2)
         })
-        return tasks
+        return filtered_tasks
 
     except requests.exceptions.RequestException as e:
         logger.error("Network error fetching tasks", extra={"error": str(e)})
@@ -175,7 +435,7 @@ def list_tasks(project_id: Optional[str] = None, filter: Optional[str] = None):
 
 @app.post("/tasks")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def create_task(task: Task):
+def create_task(task: Task, token: str = Depends(verify_token)):
     """
     Create a new task
 
@@ -219,7 +479,7 @@ def create_task(task: Task):
 
 @app.get("/tasks/{task_id}")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def get_task(task_id: str):
+def get_task(task_id: str, token: str = Depends(verify_token)):
     """Get a specific task by ID"""
     start_time = time.time()
     logger.info("Fetching task", extra={"task_id": task_id})
@@ -249,7 +509,7 @@ def get_task(task_id: str):
 
 @app.post("/tasks/{task_id}/close")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def complete_task(task_id: str):
+def complete_task(task_id: str, token: str = Depends(verify_token)):
     """Mark a task as completed"""
     start_time = time.time()
     logger.info("Completing task", extra={"task_id": task_id})
@@ -279,7 +539,7 @@ def complete_task(task_id: str):
 
 @app.post("/tasks/{task_id}/reopen")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def reopen_task(task_id: str):
+def reopen_task(task_id: str, token: str = Depends(verify_token)):
     """Reopen a completed task"""
     start_time = time.time()
     logger.info("Reopening task", extra={"task_id": task_id})
@@ -309,7 +569,7 @@ def reopen_task(task_id: str):
 
 @app.post("/tasks/{task_id}")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def update_task(task_id: str, updates: TaskUpdate):
+def update_task(task_id: str, updates: TaskUpdate, token: str = Depends(verify_token)):
     """Update an existing task"""
     start_time = time.time()
     logger.info("Updating task", extra={"task_id": task_id, "updates": updates.dict(exclude_none=True)})
@@ -344,7 +604,7 @@ def update_task(task_id: str, updates: TaskUpdate):
 
 @app.delete("/tasks/{task_id}")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def delete_task(task_id: str):
+def delete_task(task_id: str, token: str = Depends(verify_token)):
     """Delete a task"""
     start_time = time.time()
     logger.info("Deleting task", extra={"task_id": task_id})
@@ -374,7 +634,7 @@ def delete_task(task_id: str):
 
 @app.get("/projects")
 @retry_on_failure(max_retries=3, base_delay=1.0)
-def list_projects():
+def list_projects(token: str = Depends(verify_token)):
     """List all projects"""
     start_time = time.time()
     logger.info("Fetching projects")
